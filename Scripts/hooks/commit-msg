@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# commit-msg hook — remind to reference #ISSUE-XXX
+grep -E '#ISSUE-[0-9]+' "$1" > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "Tip: include #ISSUE-XXX in commit message to reference issue"
+fi
+exit 0

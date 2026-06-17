@@ -1,0 +1,37 @@
+# Protected file patterns (gitignore-style globs)
+# Files matching these patterns cannot be modified by AI agents.
+
+# Authentication & Security
+**/auth.py
+**/auth/*.py
+**/jwt*.py
+**/security.py
+**/session.py
+**/database/session.py
+
+# Encryption
+**/CommonBackup.cs
+**/crypto*.py
+**/encrypt*.py
+
+# Configuration (production)
+**/appsettings.Production.json
+**/appsettings.Production*.json
+**/.env.production
+**/.env.prod
+
+# Infrastructure
+**/Dockerfile
+**/docker-compose*.yml
+**/docker-compose*.yaml
+**/Jenkinsfile
+**/.github/workflows/*.yml
+
+# Core project files
+**/*.csproj
+**/packages.config
+
+# SSTTray protected files
+**/GlobalConst.cs
+**/Docs/SYSTEM-PROFILE.md
+**/C:/SSTTray/Property.txt

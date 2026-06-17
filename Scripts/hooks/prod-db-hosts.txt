@@ -1,0 +1,4 @@
+# Production DB hosts (one per line, partial match supported)
+# Copy production host from system profile here.
+127.0.0.1
+localhost

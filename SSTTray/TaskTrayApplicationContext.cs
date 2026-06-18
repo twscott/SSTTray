@@ -15,6 +15,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.ExtendedProperties;
 using Sinopac.Shioaji;
+using SSTTray.ExportApi;
 
 namespace TaskTrayApplication
 {
@@ -38,6 +39,7 @@ namespace TaskTrayApplication
         LineLib linelib = new LineLib();
         DateTime doSSTTime=DateTime.Now;
         FirstOhm.WebClient foWebClient = new FirstOhm.WebClient();
+        private ApiServer _exportApiServer;
 
         private void setMenuVisibility()
         {
@@ -66,22 +68,6 @@ namespace TaskTrayApplication
             MenuItem udpQueue = new MenuItem("UDP Print Queue工作清單", new EventHandler(UDPQueue));
             MenuItem doSST = new MenuItem("Do SST", new EventHandler(frm_do_sst));
 
-            //MenuItem releaseApk = new MenuItem("資訊部發布 Apk", new EventHandler(ReleaseApk));
-            //MenuItem printLabel = new MenuItem("Print ROCode Lable", new EventHandler(PrintLabel));
-            //MenuItem portalReport = new MenuItem("列印考核表", new EventHandler(PortalReport));
-            //MenuItem dailyReport = new MenuItem("列印工作日報", new EventHandler(DailyReport));
-            //MenuItem syncBaseFoot = new MenuItem("計算 BASE 有腳無腳", new EventHandler(SyncBaseFoot));
-            //MenuItem testingEnv = new MenuItem("工廠數位化測試環境", new EventHandler(TestigEvironment));
-            //MenuItem printRoStemp = new MenuItem("列印 RO 章報表", new EventHandler(PrintROStempReport));
-            //MenuItem printRoFeedStemp = new MenuItem("列印 RO 章進料簽收報表", new EventHandler(PrintROStempReport));
-            //MenuItem printPlattingReport = new MenuItem("列印電鍍報表", new EventHandler(PrintPlattingReport));
-            //MenuItem yieldStatistic = new MenuItem("良率統計", new EventHandler(YieldStatistic));
-            //MenuItem genBarCode = new MenuItem("產生BarCode", new EventHandler(GenFlowBar));
-            //MenuItem adjustInOut = new MenuItem("調整生產開始/完成數量", new EventHandler(AdjustProductionIO));
-            //MenuItem writeToExcel = new MenuItem("產生 Portal 請假 Excel ", new EventHandler(WrtieToExcel));
-            //MenuItem perFormToExcel = new MenuItem("考核表轉Excel", new EventHandler(PerFormToExcel));
-            //MenuItem calcLoginout = new MenuItem("計算員工登出人資料", new EventHandler(CalcLoginout));
-            //MenuItem questionnaire = new MenuItem("Portal問卷調查分析", new EventHandler(QuestionnaireAnalysis));
 
             MenuItem ftpClient = new MenuItem("FTP Client 測試", new EventHandler(FtpClient));
             MenuItem htmlTopdf = new MenuItem("HTML To PDF", new EventHandler(ShowHTMLToPdf));
@@ -124,11 +110,7 @@ namespace TaskTrayApplication
             //notifyIcon.ContextMenu = new ContextMenu(new MenuItem[] { udpSend, printLabel, htmlTopdf, dbBackup, syncBaseFoot, setColorBar, testWebAPI, exitMenuItem });
             notifyIcon.ContextMenu = new ContextMenu(new MenuItem[] {
                 doSST, udpSend, udpQueue, ftpClient,
-                //releaseApk, printLabel, dailyReport, testingEnv, syncBaseFoot,
-                //printRoStemp, printRoFeedStemp, printPlattingReport, yieldStatistic, genBarCode, 
-                //adjustInOut,calcLoginout,
-                
-                //portalReport, writeToExcel, perFormToExcel, questionnaire,
+
                 htmlTopdf, sqlToXml,sqlToExcel, testWebAPI, testDBConnection,excelToCsv, excelToXml,
                 dbUnlock, dbBackup, webBackup, simulateIO, sendLine,restartApp, clearProcess, reloadProperty,closeExcel,openExcel ,exitMenuItem
             });
@@ -183,8 +165,27 @@ namespace TaskTrayApplication
                 timerSysTray.Start();
             } 
             setMenuVisibility();
+
+            // 啟動 Export API Server（背景執行，不影響主功能）
+            StartExportApi();
+
             //CommonApp.chkIP_AND_PropertyIP();
 
+        }
+
+        private void StartExportApi()
+        {
+            try
+            {
+                const int apiPort = 9527;
+                const string apiToken = "ssttray-export-key";
+                _exportApiServer = new ApiServer(apiPort, apiToken, Constants.SSTConnString);
+                _exportApiServer.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ExportApi] Failed to initialize: {ex.Message}");
+            }
         }
 
 
@@ -1468,64 +1469,6 @@ namespace TaskTrayApplication
             }
         }
 
-        void QuestionnaireAnalysis(object sender , EventArgs e)
-        {
-            問卷調查結果分析 form = null;
-            if(form == null)
-            {
-                form = new 問卷調查結果分析();
-                form.ShowDialog();
-            }
-        }
-
-        void PortalReport(object sender, EventArgs e)
-        {
-            考核表報表 DRfrm;
-            if (frmUdpSend == null)
-            {
-                DRfrm = new 考核表報表();
-                DRfrm.ShowDialog();
-            }
-        }
-
-        void DailyReport(object sender, EventArgs e)
-        {
-            DailyReport DRfrm;
-            if (frmUdpSend == null)
-            {
-                DRfrm = new DailyReport();
-                DRfrm.ShowDialog();
-            }
-        }
-
-
-        void SyncBaseFoot(object sender, EventArgs e)
-        {
-            FormIfFoot Footfrm;
-            if (frmUdpSend == null)
-            {
-                Footfrm = new FormIfFoot();
-                Footfrm.ShowDialog();
-            }
-        }
-
-        void PrintLabel(object sender, EventArgs e)
-        {
-            string rtnStr = null;
-            string jsonToSend = "[{\"Key\":\"0.8x1.9\",\"Value\":\"20200513-6\"}," +
-                    "{\"Key\":\"0.8x1.9\",\"Value\":\"20200513-7\"},{\"Key\":\"0.8x1.9\",\"Value\":\"20200513-8\"}," +
-                    "{\"Key\":\"0.8x1.9\",\"Value\":\"20200513-9\"},{\"Key\":\"0.8x1.9\",\"Value\":\"20200514-1\"}]";
-            List<KeyValuePair<string, string>> roToPrint = JsonConvert.DeserializeObject<List<KeyValuePair<string, string>>>(jsonToSend);
-            if (!CommonApp.printRO(roToPrint, out rtnStr))
-            {
-                MessageBox.Show(rtnStr, "PrintLabel 錯誤", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            else
-            {
-                MessageBox.Show(rtnStr, "完成列印", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-        }
-
         void ShowConfig(object sender, EventArgs e)
         {
             // If we are already showing the window meerly focus it.
@@ -1607,24 +1550,6 @@ namespace TaskTrayApplication
             formClearProcess.ShowDialog();
         }
 
-        void WrtieToExcel(object sender, EventArgs e)
-        {
-            FormWriteToExcel mv = new FormWriteToExcel();
-            mv.ShowDialog();
-        }
-
-        void GenFlowBar(object sender, EventArgs e)
-        {
-            FormGenBarCode fg = new FormGenBarCode();
-            fg.ShowDialog();
-        }
-
-        void AdjustProductionIO(object sender, EventArgs e)
-        {
-            AdjustInOut fg = new AdjustInOut();
-            fg.ShowDialog();
-        }
-
         void SendLine(object sender, EventArgs e)
         {
             SendLineMsg fg = new SendLineMsg();
@@ -1686,61 +1611,6 @@ namespace TaskTrayApplication
         {
             ExcelLib excel = new ExcelLib();
             excel.openExcel(null);
-        }
-
-        void PerFormToExcel(object sender, EventArgs e)
-        {
-            考核表報表 fg = new 考核表報表();
-            fg.ShowDialog();
-        }
-
-        void CalcLoginout(object sender, EventArgs e)
-        {
-
-            FirstohmPrds.setOfficialLoginout("晚班", DateTime.Parse("2021-06-12"), "B_005");
-            ////第一種 計算法
-            //FirstohmPrds.setDBLoginoutInfo();
-            ////第二種 計算法，標準計算
-            //string sqlStr = "SELECT LoginTime p1Date, Date(LoginTime) p2Date, EMPID " +
-            //                " FROM mfo_loginout where EMPID <> '' and Llogin is not null " +
-            //                " group by EMPID, Date(LoginTime) ";
-            //string shiftName;
-            //string performDate;
-            //DataTable dt = CommonClass.getSQLDataTable(sqlStr);
-            //foreach(DataRow dr in dt.Rows)
-            //{
-            //    FirstohmPrds.getShiftNameByLoginTime(Convert.ToDateTime(dr["p1Date"]),
-            //       out shiftName, out performDate);
-            //    CommonApp.setOfficialLoginout(shiftName, DateTime.Parse(performDate), dr["EMPID"].ToString());
-            //}
-
-            MessageBox.Show("登出人資訊計算完成");
-        }
-
-        void TestigEvironment(object sender, EventArgs e)
-        {
-            TestingEvironment fg = new TestingEvironment();
-            fg.ShowDialog();
-        }
-
-
-
-        void PrintROStempReport(object sender, EventArgs e)
-        {
-            PrintROStemp fg = new PrintROStemp();
-            fg.ShowDialog();
-        }
-
-        void PrintPlattingReport(object sender, EventArgs e)
-        {
-            Form電鍍報表cs fg = new Form電鍍報表cs();
-            fg.ShowDialog();
-        }
-
-        void YieldStatisk(object sender, EventArgs e)
-        {
-            良率統計分析 fg = new 良率統計分析();
-            fg.ShowDialog();
         }
 
         void Exit(object sender, EventArgs e)

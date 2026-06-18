@@ -311,12 +311,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AdjustInOut.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="AdjustInOut.Designer.cs">
-      <DependentUpon>AdjustInOut.cs</DependentUpon>
-    </Compile>
     <Compile Include="appCommon.cs" />
     <Compile Include="AppRelease.cs">
       <SubType>Form</SubType>
@@ -339,12 +333,6 @@
     </Compile>
     <Compile Include="Configuration.Designer.cs">
       <DependentUpon>Configuration.cs</DependentUpon>
-    </Compile>
-    <Compile Include="DailyReport.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="DailyReport.Designer.cs">
-      <DependentUpon>DailyReport.cs</DependentUpon>
     </Compile>
     <Compile Include="DbBackup.cs">
       <SubType>Form</SubType>
@@ -374,18 +362,6 @@
     <Compile Include="FormFTPClient.Designer.cs">
       <DependentUpon>FormFTPClient.cs</DependentUpon>
     </Compile>
-    <Compile Include="FormGenBarCode.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="FormGenBarCode.Designer.cs">
-      <DependentUpon>FormGenBarCode.cs</DependentUpon>
-    </Compile>
-    <Compile Include="FormIfFoot.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="FormIfFoot.Designer.cs">
-      <DependentUpon>FormIfFoot.cs</DependentUpon>
-    </Compile>
     <Compile Include="FormRespartAP.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -409,12 +385,6 @@
     </Compile>
     <Compile Include="Form產生Excel.Designer.cs">
       <DependentUpon>Form產生Excel.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Form電鍍報表cs.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Form電鍍報表cs.Designer.cs">
-      <DependentUpon>Form電鍍報表cs.cs</DependentUpon>
     </Compile>
     <Compile Include="frmExcelToCSV.cs">
       <SubType>Form</SubType>
@@ -446,12 +416,6 @@
     <Compile Include="IO_Simulation.cs" />
     <Compile Include="LibChart.cs" />
     <Compile Include="LineLib.cs" />
-    <Compile Include="PrintROStemp.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="PrintROStemp.Designer.cs">
-      <DependentUpon>PrintROStemp.cs</DependentUpon>
-    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SendLineMsg.cs">
@@ -468,12 +432,6 @@
     <Compile Include="TestDBConnection.Designer.cs">
       <DependentUpon>TestDBConnection.cs</DependentUpon>
     </Compile>
-    <Compile Include="TestingEvironment.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="TestingEvironment.Designer.cs">
-      <DependentUpon>TestingEvironment.cs</DependentUpon>
-    </Compile>
     <Compile Include="udpLib.cs" />
     <Compile Include="UDPSend.cs">
       <SubType>Form</SubType>
@@ -489,29 +447,11 @@
       <DependentUpon>webAPI.cs</DependentUpon>
     </Compile>
     <Compile Include="webClient.cs" />
-    <Compile Include="問卷調查結果分析.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="問卷調查結果分析.Designer.cs">
-      <DependentUpon>問卷調查結果分析.cs</DependentUpon>
-    </Compile>
     <Compile Include="模擬 IO.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="模擬 IO.Designer.cs">
       <DependentUpon>模擬 IO.cs</DependentUpon>
-    </Compile>
-    <Compile Include="考核表報表.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="考核表報表.Designer.cs">
-      <DependentUpon>考核表報表.cs</DependentUpon>
-    </Compile>
-    <Compile Include="良率統計分析.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="良率統計分析.Designer.cs">
-      <DependentUpon>良率統計分析.cs</DependentUpon>
     </Compile>
     <Compile Include="解開DB死結.cs">
       <SubType>Form</SubType>
@@ -519,9 +459,9 @@
     <Compile Include="解開DB死結.Designer.cs">
       <DependentUpon>解開DB死結.cs</DependentUpon>
     </Compile>
-    <EmbeddedResource Include="AdjustInOut.resx">
-      <DependentUpon>AdjustInOut.cs</DependentUpon>
-    </EmbeddedResource>
+    <Compile Include="ExportApi\Models\ExportModels.cs" />
+    <Compile Include="ExportApi\ExportService.cs" />
+    <Compile Include="ExportApi\ApiServer.cs" />
     <EmbeddedResource Include="AppRelease.resx">
       <DependentUpon>AppRelease.cs</DependentUpon>
     </EmbeddedResource>
@@ -530,9 +470,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Configuration.resx">
       <DependentUpon>Configuration.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="DailyReport.resx">
-      <DependentUpon>DailyReport.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="DbBackup.resx">
       <DependentUpon>DbBackup.cs</DependentUpon>
@@ -546,12 +483,6 @@
     <EmbeddedResource Include="FormFTPClient.resx">
       <DependentUpon>FormFTPClient.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="FormGenBarCode.resx">
-      <DependentUpon>FormGenBarCode.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="FormIfFoot.resx">
-      <DependentUpon>FormIfFoot.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="FormRespartAP.resx">
       <DependentUpon>FormRespartAP.cs</DependentUpon>
     </EmbeddedResource>
@@ -564,9 +495,6 @@
     <EmbeddedResource Include="Form產生Excel.resx">
       <DependentUpon>Form產生Excel.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Form電鍍報表cs.resx">
-      <DependentUpon>Form電鍍報表cs.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="frmExcelToCSV.resx">
       <DependentUpon>frmExcelToCSV.cs</DependentUpon>
     </EmbeddedResource>
@@ -578,9 +506,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="HtmlToPdf.resx">
       <DependentUpon>HtmlToPdf.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="PrintROStemp.resx">
-      <DependentUpon>PrintROStemp.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -598,26 +523,14 @@
     <EmbeddedResource Include="TestDBConnection.resx">
       <DependentUpon>TestDBConnection.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="TestingEvironment.resx">
-      <DependentUpon>TestingEvironment.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="UDPSend.resx">
       <DependentUpon>UDPSend.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="webAPI.resx">
       <DependentUpon>webAPI.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="問卷調查結果分析.resx">
-      <DependentUpon>問卷調查結果分析.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="模擬 IO.resx">
       <DependentUpon>模擬 IO.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="考核表報表.resx">
-      <DependentUpon>考核表報表.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="良率統計分析.resx">
-      <DependentUpon>良率統計分析.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="解開DB死結.resx">
       <DependentUpon>解開DB死結.cs</DependentUpon>

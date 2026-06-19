@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 using Aspose.Cells;
@@ -23,10 +24,9 @@ using Newtonsoft.Json;
 
 using OfficeOpenXml.FormulaParsing.Excel.Functions.DateTime;
 
-//install Shioaji https://www.nuget.org/packages/Shioaji/
-//PM>  NuGet\Install-Package Shioaji -Version 0.0.8-dev2
-using Sinopac;
-using Sinopac.Shioaji;
+// Shioaji 改用 HTTP API（shioaji server daemon），不再使用 NuGet SDK
+// 安裝方式: pip install shioaji
+// 啟動方式: shioaji server start
 
 
 namespace TaskTrayApplication
@@ -43,8 +43,9 @@ namespace TaskTrayApplication
         public static string sstConnStr = Constants.LocalSSTV2ConnString;
         public static int panMinutes = 3; //分盤時間
         public static double panWeight = 0.6; //超過 30 分鐘,主進量加權
-        public static Shioaji _api = null;
         public static string propertyPath = @"C:\sst\Property.txt";
+        private static readonly HttpClient _httpClient = new HttpClient() { BaseAddress = new Uri("http://127.0.0.1:8080"), Timeout = TimeSpan.FromSeconds(30) };
+        private static string _shioajiServerUrl = "http://127.0.0.1:8080";
 
         public static Version version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
         static List<List<string>> tseStockList;
@@ -316,7 +317,6 @@ namespace TaskTrayApplication
                 lastDate = Convert.ToDateTime(CommonClass.getSQLScalar(sqlStr, sst.sstConnStr)).ToString("yyyy-MM-dd");
 
                 sst.genRecommand(DateTime.Now.ToString("yyyy-MM-dd"));
-                sst._api = null;
                 if (sst.last10PanSlot == null)
                     sst.last10PanSlot = new List<DateTime>();
                 else
@@ -333,7 +333,6 @@ namespace TaskTrayApplication
                 //string sqlStr = $"select count(*) from weekall where `StockDate` = '{DateTime.Now.ToString("yyyy-MM-dd")}' ";
                 //if (Convert.ToInt32(CommonClass.getSQLScalar(sqlStr, dbConnection)) < 1000)
                 //    sst.syncClosingPrice();
-                sst._api = null;
                 lastDate = null;
             }
 
@@ -926,46 +925,108 @@ namespace TaskTrayApplication
         }
 
         #region Shioaji
+        private static DateTime _lastCaWarnDate = DateTime.MinValue;
+
         public static bool shioajiLogin()
         {
-            int i = 0;
-            CommonApp.loginTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-            CommonApp.logoutTime = CommonApp.sstLastErrMsg = CommonApp.sstLastErrTime = "";
-            for (i = 0; i < 3; i++)
+            try
             {
-                try
+                CommonApp.loginTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                using (var healthClient = new HttpClient() { Timeout = TimeSpan.FromSeconds(5) })
                 {
-                    _api = new Shioaji();
-                    var apiKey = Environment.GetEnvironmentVariable("SHIOAJI_API_KEY", EnvironmentVariableTarget.User);
-                    var secretKey = Environment.GetEnvironmentVariable("SHIOAJI_SECRET_KEY", EnvironmentVariableTarget.User);
-                    var _accounts = _api.Login(apiKey, secretKey);
-                    //CommonClass.wait(1);
-                    //_api.ca_activate(
-                    //    "D:/ScottWork/SSTService/mecert/S273/TTW558/Sinopac.pfx",
-                    //    "G120519258",
-                    //    "G120519258"
-                    //);
-                    CommonApp.logoutTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-                    Console.WriteLine(_accounts);
-                    break;
+                    var response = healthClient.GetAsync($"{_shioajiServerUrl}/api/v1/health").Result;
+                    if (response.IsSuccessStatusCode)
+                    {
+                        CommonApp.logoutTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                        checkCaCertExpiry();
+                        return true;
+                    }
                 }
-
-                catch (Exception ex)
+                //shioaji server 不在，嘗試自動啟動
+                string sstDir = AppDomain.CurrentDomain.BaseDirectory;
+                string envDir = System.IO.Directory.GetParent(sstDir)?.Parent?.FullName ?? sstDir;
+                string batPath = System.IO.Path.Combine(envDir, "start_shioaji.bat");
+                if (!File.Exists(batPath))
+                    batPath = System.IO.Path.Combine(sstDir, "start_shioaji.bat");
+                if (File.Exists(batPath))
                 {
-                    _api = null;
-                    EventLog.WriteEntry(Constants.source, ex.Message, EventLogEntryType.Error);
-                    if (lineLib == null)
-                        lineLib = new LineLib();
-                    lineLib.pushTextMessageByWebapiAsync("scott.tseng  shioajiLogin() ", ex.Message);
-                    CommonClass.wait(1);
-                    CommonApp.sstLastErrTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-                    CommonApp.sstLastErrMsg = ex.Message + Environment.NewLine + Environment.NewLine + ex.StackTrace;
+                    try
+                    {
+                        var proc = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = batPath,
+                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                            WorkingDirectory = System.IO.Path.GetDirectoryName(batPath)
+                        };
+                        System.Diagnostics.Process.Start(proc);
+                        System.Threading.Thread.Sleep(8000);
+                        using (var retryClient = new HttpClient() { Timeout = TimeSpan.FromSeconds(5) })
+                        {
+                            var retryResp = retryClient.GetAsync($"{_shioajiServerUrl}/api/v1/health").Result;
+                            if (retryResp.IsSuccessStatusCode)
+                            {
+                                CommonApp.logoutTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                                checkCaCertExpiry();
+                                return true;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+                string errMsg = $"[⚠️ 重大] shioaji server 無法連線，股票資料停止收集！請手動執行 start_shioaji.bat";
+                CommonApp.sstLastErrMsg = errMsg;
+                CommonApp.sstLastErrTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                EventLog.WriteEntry(Constants.source, errMsg, EventLogEntryType.Error);
+                sendLineNotify("shioajiLogin", errMsg);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                CommonApp.sstLastErrTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                CommonApp.sstLastErrMsg = "shioaji server 連線失敗: " + ex.Message;
+                EventLog.WriteEntry(Constants.source, "shioaji server 連線失敗: " + ex.Message, EventLogEntryType.Error);
+                sendLineNotify("shioajiLogin", "shioaji server 連線失敗: " + ex.Message);
+                return false;
+            }
+        }
+
+        private static void checkCaCertExpiry()
+        {
+            try
+            {
+                string caPath = Environment.GetEnvironmentVariable("SJ_CA_PATH", EnvironmentVariableTarget.User)
+                    ?? "C:/ekey/551/G120519258/S/Sinopac.pfx";
+                if (!File.Exists(caPath)) return;
+
+                using (var cert = new System.Security.Cryptography.X509Certificates.X509Certificate2(caPath, "G120519258",
+                    System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.MachineKeySet |
+                    System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.PersistKeySet |
+                    System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.Exportable))
+                {
+                    int daysLeft = (int)(cert.NotAfter - DateTime.Now).TotalDays;
+                    if (daysLeft <= 0)
+                    {
+                        sendLineNotify("CA憑證", $"CA 憑證已過期！({cert.NotAfter:yyyy-MM-dd})");
+                    }
+                    else if (daysLeft <= 30 && _lastCaWarnDate.Date != DateTime.Now.Date)
+                    {
+                        _lastCaWarnDate = DateTime.Now;
+                        sendLineNotify("CA憑證", $"CA 憑證將在 {daysLeft} 天後到期 ({cert.NotAfter:yyyy-MM-dd})，請盡快更新。");
+                    }
                 }
             }
-            if (i >= 3)
-                return false;
-            else
-                return true;
+            catch { }
+        }
+
+        private static void sendLineNotify(string subject, string message)
+        {
+            try
+            {
+                if (lineLib == null)
+                    lineLib = new LineLib();
+                lineLib.pushTextMessageByWebapiAsync($"sstTray {subject}", $"{DateTime.Now:yyyy-MM-dd HH:mm} {message}");
+            }
+            catch { }
         }
 
         public static MsgArray stockDictToMsgArray(Dictionary<string, object> stockDict, DataTable dt)
@@ -978,10 +1039,10 @@ namespace TaskTrayApplication
                 {
                     switch (item.Key)
                     {
-                        case "ts":
-                            msgObj.ts = (Convert.ToDouble(item.Value) / 1000000000).ToString();
-                            msgObj.tk0 = CommonClass.UnixTimeStampToDateTime(Convert.ToDouble(item.Value) / 1000000000).ToString("yyyy/MM/dd HH:mm:ss");
-                            msgObj.d = CommonClass.UnixTimeStampToDateTime(Convert.ToDouble(item.Value) / 1000000000).ToString("yyyyMMdd");
+                        case "datetime":
+                            msgObj.tk0 = item.Value.ToString();
+                            msgObj.d = DateTime.Parse(item.Value.ToString()).ToString("yyyyMMdd");
+                            msgObj.ts = new DateTimeOffset(DateTime.Parse(item.Value.ToString())).ToUnixTimeSeconds().ToString();
                             break;
                         case "code":
                             msgObj.c = item.Value.ToString();
@@ -1059,174 +1120,92 @@ namespace TaskTrayApplication
         //parseType:1 全部， 2:僅 Parse 當天 recommand 的股票
         public static void shioajiStockAlert(DataTable dataSource, string lastDate, int parseType = 1)
         {
-            var contracts = new List<Sinopac.Shioaji.IContract>();
-            var contractsIdx = new List<Index>();
-            if (_api == null)
+            // 檢查 shioaji server 是否活著
+            if (!shioajiLogin())
             {
-                if (!shioajiLogin())
+                EventLog.WriteEntry(Constants.source, "shioaji server not available", EventLogEntryType.Warning);
+                return;
+            }
+            // 從 DataTable 收集所有股票代碼（不分上市/上櫃，HTTP API 一次處理）
+            List<string> allStocks = new List<string>();
+            foreach (DataRow dr in dataSource.Rows)
+            {
+                string sid = dr["StockID"].ToString();
+                if (sid != "t00" && sid != "o00")
+                    allStocks.Add(sid);
+            }
+            if (allStocks.Count == 0)
+                return;
+            // 每次最多送 500 檔（官方限制）
+            int batchSize = 500;
+            for (int batchStart = 0; batchStart < allStocks.Count; batchStart += batchSize)
+            {
+                var batch = allStocks.Skip(batchStart).Take(batchSize).ToList();
+                string jsonBody = buildSnapshotJson(batch);
+                for (int retry = 0; retry < 3; retry++)
                 {
-                    EventLog.WriteEntry(Constants.source, "Login to Shioaji Server fail", EventLogEntryType.Error);
-                    return;
-                }
-            }
-            //##############################
-            //上市
-            List<string> tempStockList = CommonClass.dtToListWithCondition(dataSource, "StockType='上市' or StockType='tse'", "StockID");
-            //List<string> tempStockList = CommonClass.dtToListWithCondition(dataSource, null, "StockID");
-            if(tempStockList!=null && tempStockList.Count > 0)
-            {
-                foreach (string stockID in tempStockList)
-                    if (stockID != "t00" && stockID != "o00")
+                    try
                     {
-                        try
+                        var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+                        var response = _httpClient.PostAsync("/api/v1/data/snapshots", content).Result;
+                        if (!response.IsSuccessStatusCode)
                         {
-                            contracts.Add(_api.Contracts.Stocks["TSE"][stockID]);
+                            CommonClass.wait(10);
+                            continue;
                         }
-                        catch (Exception ex)
+                        string responseJson = response.Content.ReadAsStringAsync().Result;
+                        var resultLists = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(responseJson);
+                        if (resultLists == null || resultLists.Count == 0)
                         {
-                            try
-                            {
-                                contracts.Add(_api.Contracts.Stocks["OTC"][stockID]);
-                            }
-                            catch (Exception ex1)
-                            {
-                                string mailBody = $"時間: {DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}{System.Environment.NewLine}" +
-                                     $"shioajiStockAlert()  Exception " + Environment.NewLine +
-                                     $"error Msg : {ex.Message}" + Environment.NewLine +
-                                     $"stackTrace : {ex.StackTrace}";
-                                CommonClass.sendmailEazy(mailBody, "3", "scott.tseng@firstohm.com.tw", $"syncTeacherEvent() Exception: {ex.Message}");
-                            }
+                            CommonClass.wait(10);
+                            continue;
                         }
-                    }
-                for(int i = 0; i < 3; i++)
-                {   //如果無資料， 則等 10 秒后, 再來一次， 共 3 次
-                    if (processContract(contracts, dataSource, parseType = 1, i))
-                       break;
-                    CommonClass.wait(10);
-                }
-            }
-            //#################################################################
-            //上櫃
-            if (contracts!=null)
-                contracts.Clear();
-            tempStockList = CommonClass.dtToListWithCondition(dataSource, 
-                "StockType='上櫃' or StockType='oct' ", "StockID");
-            if(tempStockList !=null && tempStockList.Count > 0)
-            {
-                foreach (string stockID in tempStockList)
-                    if (stockID != "t00" && stockID != "o00")
-                    {
-                        try
-                        {
-                            contracts.Add(_api.Contracts.Stocks["OTC"][stockID]);
-                        }
-                        catch (Exception ex)
-                        {
-                            try
-                            {
-                                contracts.Add(_api.Contracts.Stocks["TSE"][stockID]);
-                            }
-                            catch (Exception ex1)
-                            {
-
-                            }
-                        }
-                    }
-            }
-            //###################################################
-            //興櫃
-            tempStockList = CommonClass.dtToListWithCondition(dataSource, "StockType='興櫃' or StockType='oes'", "StockID");
-            if (tempStockList != null && tempStockList.Count > 0)
-            {
-                foreach (string stockID in tempStockList)
-                    if (stockID != "t00" && stockID != "o00")
-                    {
-                        try
-                        {
-                            contracts.Add(_api.Contracts.Stocks["OES"][stockID]);
-                        }
-                        catch (Exception ex)
-                        {
-                        }
-                    }
-                ////興櫃 + 上櫃
-                for (int i = 0; i < 3; i++)
-                {   //如果無資料， 則等 10 秒后, 再來一次， 共 3 次
-                    if (processContract(contracts, dataSource, parseType = 1, i))
+                        processContract(resultLists, dataSource, parseType);
                         break;
-                    CommonClass.wait(10);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (retry >= 2)
+                        {
+                            CommonApp.sstLastErrTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+                            CommonApp.sstLastErrMsg = "shioajiStockAlert() HTTP 錯誤: " + ex.Message;
+                        }
+                        CommonClass.wait(10);
+                    }
                 }
             }
         }
 
-        public static bool processContract(List<Sinopac.Shioaji.IContract> contracts, DataTable dataSource, int parseType = 1, int times= 0)
+        private static string buildSnapshotJson(List<string> stockIds)
         {
-            FormIn reqObj = new FormIn();
+            var contracts = new List<Dictionary<string, string>>();
+            foreach (var sid in stockIds)
+            {
+                contracts.Add(new Dictionary<string, string>
+                {
+                    { "security_type", "STK" },
+                    { "exchange", "TSE" },
+                    { "code", sid }
+                });
+            }
+            var body = new Dictionary<string, object> { { "contracts", contracts } };
+            return JsonConvert.SerializeObject(body);
+        }
+
+        private static void processContract(List<Dictionary<string, object>> resultLists, DataTable dataSource, int parseType)
+        {
             List<MsgArray> priceResults = new List<MsgArray>();
             List<string> tseRepeatList = new List<string>();
             List<string> otcRepeatList = new List<string>();
-            List<dynamic> snapshot = _api.Snapshots(contracts);
-            //List<dynamic> snapshotIdx = _api.Snapshots(contractsIdx);
-            string sendmailbody = null;
-            if (snapshot.Count <= 0)
-            {
-                var usageStatus = _api.Usage();
-                Console.WriteLine();
-                CommonClass.smtpSendMail($"第 {times} 次 snapshot.Count 回應 {snapshot.Count} 筆資料， {usageStatus}",
-                new Dictionary<string, string>() { { "曾建明", "scott.tseng@firstohm.com.tw" } },
-                true, "shioaji snapshot 無回應資料");
-                return false;
-            }
-
-            var jsonSerializer = new System.Web.Script.Serialization.JavaScriptSerializer();
-            string snapshotJson = jsonSerializer.Serialize(snapshot);
-            if (snapshot == null || snapshot.Count == 0)
-            {
-                TimeSpan timeSpent = DateTime.Now - shioajiRunoutTime;
-
-                // Display the result in minutes
-                int minutesSpent = (int)timeSpent.TotalMinutes;
-                if (minutesSpent >= 60)
-                {
-                    shioajiRunoutTime = DateTime.Now;
-                    sendmailbody = $"第 {times} 次  {shioajiRunoutTime.ToString("yyyy-MM-dd HH:mm")}    , snapshot==null, 應該是 shioaji 限額用完了 ";
-                    CommonClass.smtpSendMail(sendmailbody,
-                                new Dictionary<string, string>() { { "曾建明", "scott.tseng@firstohm.com.tw" } },
-                                true, "shioaji 限額用完");
-                    return false;
-                }
-            }
-
-            List<Dictionary<string, object>> resultLists =
-                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(snapshotJson);
             foreach (Dictionary<string, object> jsonDict in resultLists)
                 priceResults.Add(stockDictToMsgArray(jsonDict, dataSource));
-
             processAlert(dataSource, lastDate, priceResults, tseRepeatList, otcRepeatList, parseType);
-            //if (tseRepeatList.Count + otcRepeatList.Count > 0)
-            //    processAlert(dataSource, lastDate, priceResults, tseRepeatList, otcRepeatList, parseType);
-            //else
-            //{
-            //    sendmailbody = $"{shioajiRunoutTime.ToString("yyyy-MM-dd HH:mm")} , tseRepeatList.Count + otcRepeatList.Count = {tseRepeatList.Count + otcRepeatList.Count} ";
-            //    CommonClass.smtpSendMail(sendmailbody,
-            //                new Dictionary<string, string>() { { "曾建明", "scott.tseng@firstohm.com.tw" } },
-            //                true, "shioaji 無 Snapshot 資料");
-            //    return false;
-            //}
-            return true;
         }
 
         public static void initDaylySpotliteStock(ref string lastDate)
         {
 
-            int apiErrorCnt = 0;
-            if (_api == null)
-            {
-                if (!shioajiLogin())
-                    return;
-            }
             string dataDate = DateTime.Now.ToString("yyyy-MM-dd");
-            Contracts shioajiContracts = sst._api.Contracts;
             DataTable dt = null;
             string sqlStr = null;
             sqlStr = "insert ignore into `alertlist` (`alertDate`,`StockID`,`reason`) " +
@@ -1264,38 +1243,7 @@ namespace TaskTrayApplication
             //CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
         }
 
-        private static List<Sinopac.Shioaji.IContract> getAllStocksContract(out int badCnt)
-        {
-            badCnt = 0;
-            var contracts = new List<Sinopac.Shioaji.IContract>();
-            int apiErrCnt = 0;
-            string sqlStr = null;
-            sqlStr = "SELECT `StockID`, `StockType`, `StockName` " +
-                " FROM `weekall` a " +
-                " inner join (select max(`StockDate`) maxDate from weekall ) b on a.`StockDate`=b.maxDate " +
-                " where Length(`StockID`)=4 ";
-            DataTable dt = CommonClass.getSQLDataTable(sqlStr, sstConnStr);
-            foreach (DataRow dr in dt.Rows)
-            {
-                try
-                {
-                    if (dr["StockType"].ToString() == "上市" || dr["StockType"].ToString() == "TSE")
-                        contracts.Add(_api.Contracts.Stocks["TSE"][dr["StockID"].ToString()]);
-                    else if (dr["StockType"].ToString() == "上櫃" || dr["StockType"].ToString() == "OTC")
-                        contracts.Add(_api.Contracts.Stocks["OTC"][dr["StockID"].ToString()]);
-                }
-                catch (Exception ex)
-                {
-                    if (apiErrCnt == 0)
-                    {
-                        shioajiLogin();
-                        apiErrCnt++;
-                    }
-                    badCnt++;
-                }
-            }
-            return contracts;
-        }
+        // getAllStocksContract 已移除（舊 Shioaji SDK 專用，改用 HTTP API）
 
         #region stock60days 計算
         //dayNo 0->今天， 1->昨天， MA5 ->0-4 的平均 
@@ -2001,91 +1949,76 @@ namespace TaskTrayApplication
             return rtnVal;
         }
 
+        private static bool skipStock(MsgArray msgArray, List<string> tseRepeatList, List<string> otcRepeatList)
+        {
+            if (tseRepeatList != null && msgArray.ex == "tse")
+                tseRepeatList.Add(msgArray.c);
+            else if (otcRepeatList != null && msgArray.ex == "otc")
+                otcRepeatList.Add(msgArray.c);
+            return true;
+        }
+
         public static void processAlert(DataTable dataSource, string lastDate,
             List<MsgArray> priceResults, List<string> tseRepeatList = null,
             List<string> otcRepeatList = null, int parseType = 1)
         {
-            //上櫃
             StringBuilder notifyStrBody = new StringBuilder();
             StringBuilder notifyStrTitle = new StringBuilder();
             string instRuseFallRate = null;
             int tempVolDir = -99;
             int pDiff = 0;
-            bool ifData = false;
             object objPanScore = null;
             int panvolScore = 0;
-            //string tableName = null; //buyin/recommandstock/investbase
-            int ifPriceVal = 0; //是否有取得的即時金額
-            int ifVolval = 0; //是否有取得的即時成交量
+            int ifPriceVal = 0;
+            int ifVolval = 0;
             string sqlStr = null;
-            double avg5Amt = 0; ////5均價
-            double avg10Amt = 0; ////5均價
-            double avg20Amt = 0; ////月均價
-            double avgSeasonAmt = 0; ////季均價
             object tempObj = null;
-            double yestPrize = 0; //昨價;
-            double onTimePrice = 0; //本盤價格
-            double prePrice = 0; //前一盤價格
-            double d1HPrice = 0; //第一天的高價（昨天）
-            double d1LPrice = 0; //第一天的低價
-            double d2HPrice = 0; //第二天的高價（前天）
-            double d2LPrice = 0; //第二天的低價
-            double panAmtDiffRate = 0; //(本盤價格-前盤價格)/前盤價格 x100%  盤價差比
-            int panVol5Cnt = 0; //最近10盤, panAvgVolRate > 5倍 的次數
-            int panVol10Cnt = 0; //最近10盤, panAvgVolRate > 10倍 的次數
+            double yestPrize = 0;
+            double onTimePrice = 0;
+            double prePrice = 0;
+            double d1HPrice = 0;
+            double d1LPrice = 0;
+            double d2HPrice = 0;
+            double d2LPrice = 0;
+            double panAmtDiffRate = 0;
+            int panVol5Cnt = 0;
+            int panVol10Cnt = 0;
             string panVol5DictJson = null;
             int panAmtRatePosCnt = 0;
-            int lastVol = 0; //昨量
-            int avg5Vol = 0; //5均量
-            double lastVolRate = 0; //昨量倍
-            double avg5VolRate = 0; //五均量倍
-
-            int onTimeVol = 0; //本日即時累計 成交量, 現量
-
-            int preVol = 0; //前一盤即時累計 成交量
-            int lastPanAvGVol = 0; // 分盤/五比 （昨量改成五均）
-            double panAvgVol = 0; //分盤平均量(含本盤), 不過這是大約均量
-
-            int panVol = 0; //本盤的量, 從雲端來的數據
-            int panTrans = 0; //本盤的張數
-            int lastTrans = 0; //昨天交易筆數
-            double transRate = 0; //交易筆倍
-            int panVolPerTrans = 0;  //當盤每筆成交量
-
-            double instant5DVolRate = 0; //當盤量/5均量
+            int lastVol = 0;
+            int avg5Vol = 0;
+            double lastVolRate = 0;
+            double avg5VolRate = 0;
+            int onTimeVol = 0;
+            int preVol = 0;
+            int lastPanAvGVol = 0;
+            double panAvgVol = 0;
+            int panVol = 0;
+            int panTrans = 0;
+            double transRate = 0;
+            int panVolPerTrans = 0;
+            double instant5DVolRate = 0;
             double panAmtDiff, panAmtRate, panAvgVolRate, panLastVolRate, panAvg5VolRate;
             string heightLevelStr = "";
             bool alreadyNotStr = false;
-            string fixMsg = null;
-
-            string lastNotifyTitle = null;
-            int ifMess = 0; //是否瞬間大量(<昨量的 1/4)
-            int ifRise = 0; //是否瞬間跳漲(<1%以上) 或是 爆量上漲
-            int ifFalls = 0; //是否瞬間跳殺(-1%以上) 或是 爆量下跌
-            int messRise = 0; //大量上漲
-            int messFall = 0; //大量下跌
+            int ifMess = 0;
+            int ifRise = 0;
+            int ifFalls = 0;
+            int messRise = 0;
+            int messFall = 0;
             DateTime alertTime;
-            //double buyInPoint = 0; //買進價格
             DateTime preTime;
-            //TimeSpan panTimeSpan;
-            //int panTimeSpanMin = 0;
             bool t0920Flag = DateTime.Now.Hour == 9 && DateTime.Now.Minute >= 19 && DateTime.Now.Minute <= 21;
-            double diffPrice = 0; //漲跌價
-            double diffRate = 0; //漲跌幅
-            double dbYestPrice = 0; //db 中記錄的昨價;
-            double buyinPrice = 0; //買入價格
-            int priority = 0;  //0~3 低·～高
-            double shortPower = 1; ////五檔買量加權/五檔賣量加權(短線多空力道)
-                                   //(a*5 + b*4 + c*3 + d*2 + e)/(a1*5 + b1*4 + c1*3 + d1*2 + e1)
+            double diffPrice = 0;
+            double diffRate = 0;
+            double dbYestPrice = 0;
+            int priority = 0;
+            double shortPower = 1;
             double instantJumpKong = 0;
-            string detectReason = null;
             int alertID = -1;
             string stockType = null;
             List<string> shortBull = null;
             List<string> shortBear = null;
-            Dictionary<string, double> panVol5Dict = new Dictionary<string, double>();
-            List<string> panVol5DictToDelete = new List<string>();
-            DataTable tempDT = null;
             CommonApp.sstProcessErrCnt = 0;
             CommonApp.sstProcessStart = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
             if (sst.last10PanSlot == null)
@@ -2113,12 +2046,7 @@ namespace TaskTrayApplication
 
                     if (ifPriceVal == 1 && ifVolval == 1)
                     {
-                        //無量 又 無價 就不需要警示了
-                        if (tseRepeatList != null && msgArray.ex == "tse")
-                            tseRepeatList.Add(msgArray.c);
-                        else if (otcRepeatList != null && msgArray.ex == "otc")
-                            otcRepeatList.Add(msgArray.c);
-                        continue;
+                        if (skipStock(msgArray, tseRepeatList, otcRepeatList)) continue;
                     };
                     //if (CommonClass.IsNumeric(msgArray.tlong))
                     //    alertTime = DateTime.Parse($"{DateTime.Now.ToString("yyyy/MM/dd")} {msgArray.t}");
@@ -2127,8 +2055,8 @@ namespace TaskTrayApplication
                     //alertTime = DateTime.Parse($"{CommonClass.yyyymmddToDateFormat(msgArray.d)} {msgArray.t}");
                     alertTime = DateTime.Now;
                     yestPrize = onTimePrice = prePrice = lastVol = avg5Vol = onTimeVol = preVol = lastPanAvGVol = panVol = 0;
-                    lastVolRate = avg5VolRate = panAvgVol = buyinPrice = diffRate = dbYestPrice = panAmtDiffRate = 0;
-                    avg5Amt = avg10Amt = avg20Amt = avgSeasonAmt = diffPrice = lastTrans = panVolPerTrans = 0;
+                    lastVolRate = avg5VolRate = panAvgVol = diffRate = dbYestPrice = panAmtDiffRate = 0;
+                    diffPrice = panVolPerTrans = 0;
                     panAmtDiff = panAmtRate = panAvgVolRate = panLastVolRate = panAvg5VolRate = transRate = instant5DVolRate = 0;
                     messRise = messFall = pDiff = 0;
                     d1HPrice = d2HPrice = d2LPrice = d2LPrice = 0;
@@ -2145,14 +2073,9 @@ namespace TaskTrayApplication
                     else
                         onTimePrice = Convert.ToDouble(msgArray.z); //本盤價格
 
-                    //今天沒跌小於 0.1%, 就不出訊息
                     if (onTimePrice <= 0)
                     {
-                        if (tseRepeatList != null && msgArray.ex == "tse")
-                            tseRepeatList.Add(msgArray.c);
-                        else if (otcRepeatList != null && msgArray.ex == "otc")
-                            otcRepeatList.Add(msgArray.c);
-                        continue;
+                        if (skipStock(msgArray, tseRepeatList, otcRepeatList)) continue;
                     }
                     if (msgArray.ex == "oes")
                         onTimeVol = (int)(Math.Round(Convert.ToDouble(msgArray.v) / 1000, 0)); //到目前的成交量
@@ -2160,20 +2083,12 @@ namespace TaskTrayApplication
                         onTimeVol = Convert.ToInt32(msgArray.v); //到目前的成交量
                     if (onTimeVol <= 0)
                     {
-                        if (tseRepeatList != null && msgArray.ex == "tse")
-                            tseRepeatList.Add(msgArray.c);
-                        else if (otcRepeatList != null && msgArray.ex == "otc")
-                            otcRepeatList.Add(msgArray.c);
-                        continue;
+                        if (skipStock(msgArray, tseRepeatList, otcRepeatList)) continue;
                     }
 
                     if (!CommonClass.IsNumeric(msgArray.v))
                     {
-                        if (tseRepeatList != null && msgArray.ex == "tse")
-                            tseRepeatList.Add(msgArray.c);
-                        else if (otcRepeatList != null && msgArray.ex == "otc")
-                            otcRepeatList.Add(msgArray.c);
-                        continue;
+                        if (skipStock(msgArray, tseRepeatList, otcRepeatList)) continue;
                     }
                     ////////////////////////////////////////////////////////////////////////////////////////
                     //foreach (dr in dataSource.Rows)
@@ -2288,6 +2203,17 @@ namespace TaskTrayApplication
                     panLastVolRate = (lastVol == 0 ? (double)panVol : (double)panVol / lastVol);
                     panAvg5VolRate = (avg5Vol == 0 ? (double)panVol : (double)panVol / avg5Vol);
 
+                    //可疑 volume 資料 logging（資料照收，但記錄異常供分析）
+                    if (onTimeVol < preVol)
+                        CommonClass.writeLog("sstTray", "suspiciousData", 3,
+                            $"累計量倒退 {msgArray.c} onTimeVol={onTimeVol} preVol={preVol}");
+                    if (panVol <= 0)
+                        CommonClass.writeLog("sstTray", "suspiciousData", 3,
+                            $"panVol<=0 {msgArray.c} panVol={panVol} onTimeVol={onTimeVol} preVol={preVol}");
+                    if (panAvgVolRate > 100)
+                        CommonClass.writeLog("sstTray", "suspiciousData", 3,
+                            $"極高倍率 {msgArray.c} panAvgVolRate={panAvgVolRate:F1} panVol={panVol} lastPanAvGVol={lastPanAvGVol}");
+
                     if (dr["D1HPrice"] == null || dr["D1HPrice"] == DBNull.Value) //第一天高價
                         d1HPrice = 0;
                     else
@@ -2323,7 +2249,6 @@ namespace TaskTrayApplication
                     panVolPerTrans = panTrans == 0 ? 0 : panVol / panTrans; //當盤平均每筆交易的成交量
                     instant5DVolRate = avg5Vol == 0 ? 0 : Math.Round((double)panVol / avg5Vol, 2);  //盤量5均倍
                     double stockTimeSpan = CommonClass.sameDaytimeBetweenInMinutes("09:00", msgArray.t);
-                    detectReason = null;
 
                     if (panAmtDiffRate >= 1) ////瞬間跳漲 1% 以上
                     {

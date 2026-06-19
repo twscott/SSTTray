@@ -378,3 +378,10 @@ SSTTray.exe
 
 # 敏感配置（包含 DB 資訊）
 Docs/SYSTEM-PROFILE.md
+
+# Shioaji API Key（不進版控）
+.env
+
+# Shioaji server 執行日誌
+shioaji_server.log
+shioaji_server.err

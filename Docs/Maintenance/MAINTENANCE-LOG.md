@@ -29,3 +29,35 @@
 **Gate 狀態**：未觸達（本次為首次接入 + 小修改，非完整維護週期）
 
 **下次繼續**：無待辦事項。下次開工時由工程師提出新維護需求。
+
+### 2026-06-19 — Shioaji HTTP API 遷移 + 程式碼重構 + 通知機制追加
+
+**完成項目**：
+- Shioaji 認證修復：舊 Sinopac.Shioaji C# SDK → Shioaji HTTP API
+- `shioajiStockAlert()` 改為 HttpClient POST /api/v1/data/snapshots
+- `stockDictToMsgArray()` datetime 格式相容處理
+- `shioajiLogin()` 改為 localhost:8080 health check + 自動啟動 server + CA 憑證到期檢查
+- `detector()` 5 組重複 try-catch 抽成 `detectorErrHandler()` 共用錯誤處理 + writeLog
+- `processAlert()` 5 組重複 skip 驗證抽成 `skipStock()` helper
+- `processAlert()` 清理約 15 個未使用的變數宣告
+- 新增可疑 volume 資料 logging（累計量倒退、panVol<=0、極高倍率）
+- 新增每日 13:35 資料健康檢查（alertlog 0 筆→寄信，<100 筆→寫 log）
+- 新增 CA 憑證到期前 30 天 Line 通知
+- 新增 `shioajiLogin()` 失敗時 Line 通知
+- 新增開機自動啟動設定（Windows Startup + start_shioaji.bat）
+- `start_shioaji.bat` 建立與開機捷徑
+- `.gitignore` 新增 .env / shioaji_server 日誌
+
+**產出文件**：
+- `SSTTray/sst.cs`（修改 - 核心遷移 + logging）
+- `SSTTray/TaskTrayApplicationContext.cs`（修改 - detector 重構 + 每日檢查）
+- `SSTTray/SSTTray.csproj`（修改 - 移除 Sinopac.Shioaji NuGet）
+- `docs/plans/2026-06-19-shioaji-http-migration.md`（新建 - 實作計畫）
+- `start_shioaji.bat`（新建 - 開機啟動腳本）
+- `.gitignore`（更新 - 新增 .env / server log）
+
+**Gate 狀態**：未觸達（非完整維護週期）
+
+**下次繼續**：
+- 觀察下個交易日 alertlist 資料是否正常收集
+- 如 FirstohmService 需要更新監視路徑，後續處理

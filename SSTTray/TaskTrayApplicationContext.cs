@@ -14,7 +14,6 @@ using System.Linq;
 using System.Globalization;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.ExtendedProperties;
-using Sinopac.Shioaji;
 using SSTTray.ExportApi;
 
 namespace TaskTrayApplication
@@ -567,6 +566,16 @@ namespace TaskTrayApplication
             }
         }
 
+        private static void detectorErrHandler(string sqlStr, Exception ex)
+        {
+            CommonClass.writeLog("sstTray", "detector", 3,
+                $"sql: {sqlStr} | err: {ex.Message}");
+            CommonClass.smtpSendMail($"sst: detector() - sql : {sqlStr} {Environment.NewLine}" +
+                $"{ex.Message}{Environment.NewLine}{Environment.NewLine}{ex.StackTrace}  ",
+                new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
+                true, "sstTray detector() 錯誤");
+        }
+
         private void detector()
         {
             string sqlStr = null;
@@ -631,13 +640,7 @@ namespace TaskTrayApplication
                     $" set a.lastVolTime = b.lastVolTime ";
                 CommonClass.execSQLNonQuery(sqlStr);
             }
-            catch (Exception ex)
-            {
-                CommonClass.smtpSendMail($"sst: detector() - sql : {sqlStr} {Environment.NewLine}" +
-                    $"{ex.Message}{Environment.NewLine}{Environment.NewLine}{ex.StackTrace}  ",
-                    new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
-                    true, "sstTray detectorPanAmtRateDiff() 錯誤");
-            }
+            catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
 
             try
             {
@@ -664,20 +667,12 @@ namespace TaskTrayApplication
                 CommonClass.execSQLNonQuery(sqlStr);
                 CommonClass.wait(1);
             }
-            catch (Exception ex)
-            {
-                CommonClass.smtpSendMail($"sst: detector() - sql : {sqlStr} {Environment.NewLine}" +
-                    $"{ex.Message}{Environment.NewLine}{Environment.NewLine}{ex.StackTrace}  ",
-                    new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
-                    true, "sstTray detectorPanAmtRateDiff() 錯誤");
-            }
+            catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
 
             try
             {
-                //pDiff
                 sqlStr = $"update investbase a " +
                         $" inner join alertList b on a.recDate = b.alertDate and a.stockid = b.stockid " +
-                        
                         $" set a.`panVol5CntPos` = b.panVol5CntPos, a.`panVol5CntNeg` = b.panVol5CntNeg, " +
                         $" a.`panVol50CntPos` = b.panVol50CntPos, a.`panVol50CntNeg` = b.panVol50CntNeg, " +
                         $" a.pDiff = (b.`paRatePosCnt`+b.`pLVRatePosCnt`+b.`p5VRatePosCnt`+b.`pApRatePosCnt`) - (b.`paRateNegCnt`+b.`pLVRateNegCnt`+b.`p5VRateNegCnt`+b.`pApRateNegCnt`), " +
@@ -688,13 +683,7 @@ namespace TaskTrayApplication
                 CommonClass.execSQLNonQuery(sqlStr);
                 CommonClass.wait(1);
             }
-            catch (Exception ex)
-            {
-                CommonClass.smtpSendMail($"sst: detector() - sql : {sqlStr} {Environment.NewLine}" +
-                    $"{ex.Message}{Environment.NewLine}{Environment.NewLine}{ex.StackTrace}  ",
-                    new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
-                    true, "sstTray detectorPanAmtRateDiff() 錯誤");
-            }
+            catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
           
             try
             {
@@ -713,13 +702,7 @@ namespace TaskTrayApplication
                 CommonClass.execSQLNonQuery(sqlStr);
                 CommonClass.wait(1);
             }
-            catch (Exception ex)
-            {
-                CommonClass.smtpSendMail($"sst: detector() - sql : {sqlStr} {Environment.NewLine}" +
-                    $"{ex.Message}{Environment.NewLine}{Environment.NewLine}{ex.StackTrace}  ",
-                    new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
-                    true, "sstTray detectorPanAmtRateDiff() 錯誤");
-            }
+            catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
 
             try
             {
@@ -735,13 +718,7 @@ namespace TaskTrayApplication
                 CommonClass.execSQLNonQuery(sqlStr);
                 CommonClass.wait(1);
             }
-            catch (Exception ex)
-            {
-                CommonClass.smtpSendMail($"sst: detector() - sql : {sqlStr} {Environment.NewLine}" +
-                    $"{ex.Message}{Environment.NewLine}{Environment.NewLine}{ex.StackTrace}  ",
-                    new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
-                    true, "sstTray detectorPanAmtRateDiff() 錯誤");
-            }
+            catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
 
             try
             {
@@ -753,13 +730,7 @@ namespace TaskTrayApplication
                 CommonClass.execSQLNonQuery(sqlStr);
                 detectorPanAmtRateDiff(DateTime.Now.ToString("yyyy-MM-dd"), false);
             }
-            catch (Exception ex)
-            {
-                CommonClass.smtpSendMail($"sst: detector() - sql : {sqlStr} {Environment.NewLine}" +
-                    $"{ex.Message}{Environment.NewLine}{Environment.NewLine}{ex.StackTrace}  ",
-                    new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
-                    true, "sstTray detectorPanAmtRateDiff() 錯誤");
-            }
+            catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
             //ai_predict
             DateTime now = DateTime.Now;
             TimeSpan startTime = new TimeSpan(9, 0, 0); // 09:00
@@ -1171,7 +1142,6 @@ namespace TaskTrayApplication
                     {
                         doSSTTime = DateTime.Now;
                         CommonApp.sstDayProcessErrCnt = 0;
-                        sst._api = null;
                     }
 
                     if (frmDoSst != null)
@@ -1191,7 +1161,7 @@ namespace TaskTrayApplication
                     //2023-07-26 改為每 30 分鐘全部 Parse 一次
                     if (!CommonClass.isHoliday(DateTime.Now, true))
                     {
-                        if (currHour == 8 && currMin >= 45 && currMin % 5 == 0 && sst._api == null) {
+                        if (currHour == 8 && currMin >= 45 && currMin % 5 == 0) {
                             sst.shioajiLogin();
                             sst.do_sst(currHour, currMin, Constants.SSTConnString, 1);
                             sqlStr = $"update investbase set stateStr = ''";
@@ -1252,6 +1222,27 @@ namespace TaskTrayApplication
                         }
                         if (currHour >= 9 && currHour < 14 && (currMin == 30 || currMin == 0))
                             sst_sendLine(2, currMin);
+                    }
+
+                    //每日收盤檢查：13:35 確認 alertlog 有無資料
+                    if (currHour == 13 && currMin == 35 && !CommonClass.isHoliday(DateTime.Now, true)
+                        && (int)DateTime.Now.DayOfWeek != 0 && (int)DateTime.Now.DayOfWeek != 6)
+                    {
+                        object cntObj = CommonClass.getSQLScalar("SELECT COUNT(*) FROM sst.alertlog WHERE alertDate = CURRENT_DATE");
+                        int rowCnt = cntObj != null && cntObj != DBNull.Value ? Convert.ToInt32(cntObj) : 0;
+                        if (rowCnt == 0)
+                        {
+                            string warnMsg = $"sstTray 每日檢查：今日 alertlog 無任何資料，shioaji 資料收集可能異常";
+                            CommonClass.writeLog("sstTray", "dailyCheck", 3, warnMsg);
+                            CommonClass.smtpSendMail(warnMsg,
+                                new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
+                                true, "sstTray 資料收集異常");
+                        }
+                        else if (rowCnt < 100)
+                        {
+                            string warnMsg = $"sstTray 每日檢查：今日 alertlog 僅 {rowCnt} 筆（異常偏低）";
+                            CommonClass.writeLog("sstTray", "dailyCheck", 2, warnMsg);
+                        }
                     }
 
                     if (CommonApp.sendSSTStartLine.Date < DateTime.Now.Date)

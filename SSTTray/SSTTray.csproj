@@ -145,9 +145,7 @@
     <Reference Include="SimpleBase, Version=1.0.0.0, Culture=neutral, PublicKeyToken=eb1df8ff9aee2c6f, processorArchitecture=MSIL">
       <HintPath>..\packages\SimpleBase.2.1.0\lib\net472\SimpleBase.dll</HintPath>
     </Reference>
-    <Reference Include="Sinopac.Shioaji, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Shioaji.1.1.8\lib\netstandard2.0\Sinopac.Shioaji.dll</HintPath>
-    </Reference>
+    <!-- Sinopac.Shioaji 已移除，改用 HTTP API（shioaji server daemon） -->
     <Reference Include="Sodium.Core, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Sodium.Core.1.2.0\lib\netstandard1.6\Sodium.Core.dll</HintPath>
     </Reference>

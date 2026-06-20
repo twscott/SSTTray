@@ -1790,46 +1790,47 @@ namespace TaskTrayApplication
         //pa10v, 盤5V盤10倍
         //pa20v, 盤5V盤20倍
         //direction:1 漲， 0:跌, 2,漲幅 0
+
+        private class AlertColumnMap
+        {
+            public string[] IncrementColumns { get; init; }
+        }
+
+        private static readonly Dictionary<(string pType, int dir), AlertColumnMap> AlertTypeMap = new()
+        {
+            [("pam", 1)]   = new() { IncrementColumns = new[] { "paRatePosCnt" } },
+            [("pam", 0)]   = new() { IncrementColumns = new[] { "paRateNegCnt" } },
+            [("plv", 1)]   = new() { IncrementColumns = new[] { "pLVRatePosCnt" } },
+            [("plv", 0)]   = new() { IncrementColumns = new[] { "pLVRateNegCnt" } },
+            [("p5v", 1)]   = new() { IncrementColumns = new[] { "p5VRatePosCnt" } },
+            [("p5v", 0)]   = new() { IncrementColumns = new[] { "p5VRateNegCnt" } },
+            [("pav", 1)]   = new() { IncrementColumns = new[] { "panVol5CntPos" } },
+            [("pav", 0)]   = new() { IncrementColumns = new[] { "panVol5CntNeg" } },
+            [("pa10v", 1)] = new() { IncrementColumns = new[] { "panVol5CntPos", "pApRatePosCnt" } },
+            [("pa10v", 0)] = new() { IncrementColumns = new[] { "panVol5CntNeg", "pApRateNegCnt" } },
+            [("pa20v", 1)] = new() { IncrementColumns = new[] { "panVol5CntPos", "pApRatePosCnt", "panVol50CntPos" } },
+            [("pa20v", 0)] = new() { IncrementColumns = new[] { "panVol5CntNeg", "pApRateNegCnt", "panVol50CntNeg" } },
+        };
+
+        private static readonly string[] AllAlertColumns = {
+            "paRatePosCnt", "paRateNegCnt",
+            "pLVRatePosCnt", "pLVRateNegCnt",
+            "p5VRatePosCnt", "p5VRateNegCnt",
+            "panVol5CntPos", "panVol5CntNeg",
+            "pApRatePosCnt", "pApRateNegCnt",
+            "panVol50CntPos", "panVol50CntNeg"
+        };
+
         public static int insertAlertList(string stockID, string reason, string pType, int direction, bool ifUpdateOnly = false,
             double panLastVolRate = 0, double panAvg5VolRate = 0, double panAvgVolRate = 0, double panAmtRate = 0, int panVol = 0)
         {
-            //string sqlStr = "SELECT count(*) FROM alertlist WHERE `alertDate`=CURRENT_DATE ";
-            //if(Convert.ToInt32(CommonClass.getSQLScalar(sqlStr)) > 450) //當日筆數超過 450, 只有最強的股票才能加入 alertlist
-            //    ifUpdateOnly = !(!ifUpdateOnly && (panAvgVolRate >= 80 || panLastVolRate >= 2 || panAvg5VolRate >= 2));
             string sqlStr = null;
             string onDupStr = null;
             try
             {
-                if (pType == "pam" && direction == 1) //瞬跳 2% 以上
-                    onDupStr = "paRatePosCnt = paRatePosCnt+1";
-                else if (pType == "pam" && direction == 0) //瞬殺 1% 以上
-                    onDupStr = "paRateNegCnt = paRateNegCnt+1";
-
-                else if (pType == "plv" && direction == 1)  //昨倍 0.5 倍
-                    onDupStr = "pLVRatePosCnt=pLVRatePosCnt+1";
-                else if (pType == "plv" && direction == 0)
-                    onDupStr = "pLVRateNegCnt=pLVRateNegCnt+1";
-
-                else if (pType == "p5v" && direction == 1)  //5均 0.5倍
-                    onDupStr = "p5VRatePosCnt = p5VRatePosCnt+1";
-                else if (pType == "p5v" && direction == 0)
-                    onDupStr = "p5VRateNegCnt = p5VRateNegCnt+1";
-
-                else if (pType == "pav" && direction == 1)
-                    onDupStr = "panVol5CntPos = panVol5CntPos+1";
-                else if (pType == "pav" && direction == 0)
-                    onDupStr = "panVol5CntPos = panVol5CntPos+1";
-
-                else if (pType == "pa10v" && direction == 1) //盤5V盤20倍
-                    onDupStr = "pApRatePosCnt = pApRatePosCnt +1, panVol5CntPos = panVol5CntPos+1";
-                else if (pType == "pa10v" && direction == 0)
-                    onDupStr = "pApRateNegCnt = pApRateNegCnt+1, panVol5CntNeg = panVol5CntNeg+1";
-
-                else if (pType == "pa20v" && direction == 1) //盤5V盤20倍
-                    onDupStr = "panVol50CntPos = panVol50CntPos+1, pApRatePosCnt = pApRatePosCnt +1, panVol5CntPos = panVol5CntPos+1";
-                else if (pType == "pa20v" && direction == 0)
-                    onDupStr = "panVol50CntNeg = panVol50CntNeg+1, pApRateNegCnt = pApRateNegCnt +1, panVol5CntNeg = panVol5CntNeg+1";
-
+                var map = AlertTypeMap.GetValueOrDefault((pType, direction));
+                if (map != null)
+                    onDupStr = string.Join(", ", map.IncrementColumns.Select(c => $"{c} = {c}+1"));
 
                 onDupStr += $",maxPLVR=IF(maxPLVR > {panLastVolRate}, maxPLVR, {(direction == 0 ? -panLastVolRate : panLastVolRate)}), " +
                     $" maxP5VR=IF(maxP5VR > {panAvg5VolRate}, maxP5VR, {(direction == 0 ? -panAvg5VolRate : panAvg5VolRate)}), " +
@@ -1837,24 +1838,16 @@ namespace TaskTrayApplication
                     $" currPanAmtRate = {panAmtRate}, currPanVol={panVol} ";
 
                 if (!ifUpdateOnly)
+                {
+                    var colValues = AllAlertColumns.Select(c =>
+                        map != null && map.IncrementColumns.Contains(c) ? "1" : "0");
                     sqlStr = $"insert ignore into `alertlist` (`alertDate`, `StockID`, `reason`, " +
-                        $" `paRatePosCnt`,`paRateNegCnt`," + //跳漲跌 2%
-                        $" `pLVRatePosCnt`,`pLVRateNegCnt`, " + //昨量 0.5 倍
-                        $" `p5VRatePosCnt`,`p5VRateNegCnt`," + //5均 0.5 倍
-
-                        $" `panVol5CntPos`,`panVol5CntNeg`, " + //盤5倍
-                        $" `pApRatePosCnt`,`pApRateNegCnt`, " + //盤10倍
-                        $" `panVol50CntPos`,`panVol50CntNeg`," + //盤20倍
+                        $" {string.Join(", ", AllAlertColumns.Select(c => $"`{c}`"))}, " +
                         $" maxPLVR, maxP5VR, maxPAR, currPanAmtRate, currPanVol) " +
                         $"Values (CURRENT_DATE, '{stockID}', '{reason}', " +
-                        $"{(pType == "pam" && direction == 1 ? 1 : 0)},{(pType == "pam" && direction == 0 ? 1 : 0)}," +
-                        $"{(pType == "plv" && direction == 1 ? 1 : 0)},{(pType == "plv" && direction == 0 ? 1 : 0)}," +
-                        $"{(pType == "p5v" && direction == 1 ? 1 : 0)},{(pType == "p5v" && direction == 0 ? 1 : 0)}," +
-
-                        $"{((pType == "pav" || pType == "pa10v" || pType == "pa20v") && direction == 1 ? 1 : 0)},{((pType == "pav" || pType == "pa10v" || pType == "pa20v") && direction == 0 ? 1 : 0)}, " +
-                        $"{((pType == "pa10v" || pType == "pa20v") && direction == 1 ? 1 : 0)},{((pType == "pa10v" || pType == "pa20v") && direction == 0 ? 1 : 0)}," +
-                        $"{(pType == "pa20v" && direction == 1 ? 1 : 0)},{(pType == "pa20v" && direction == 0 ? 1 : 0)}, " +
+                        $" {string.Join(", ", colValues)}, " +
                         $" {panLastVolRate}, {panAvg5VolRate}, {panAvgVolRate}, {panAmtRate}, {panVol}) ";
+                }
                 CommonClass.execSQLNonQuery(sqlStr, Constants.ConnString, true);
                 return 0;
             }
@@ -1947,6 +1940,24 @@ namespace TaskTrayApplication
             else if ((panAvgVolRate >= 5 && panVol >= 30) || panVol >= 200 || panAvgVolRate >= 8)
                 rtnVal = 0;
             return rtnVal;
+        }
+
+        /// <summary>
+        /// 計算盤量等級：正數=上漲方向，負數=下跌方向
+        /// 20=20倍主進, -20=20倍主出, 10=10倍主進, -10=10倍主出,
+        /// 5=主進, -5=主出, 0=平盤, -99=無訊號
+        /// </summary>
+        private static int calcPanLevel(double panAvgVolRate, int panVol, double panAmtRate, string stockType, double panWeight)
+        {
+            if ((panAvgVolRate >= 20 || panVol >= 950) && panAmtRate > 0) return 20;
+            if ((panAvgVolRate >= 20 || panVol >= 950) && panAmtRate < 0) return -20;
+            if ((panAvgVolRate >= 10 || panVol >= 600) && panAmtRate > 0) return 10;
+            if ((panAvgVolRate >= 10 || panVol >= 600) && panAmtRate < 0) return -10;
+            int simple = calcPanVolCntsSimple(panWeight, panVol, panAvgVolRate, panAmtRate, stockType);
+            if (simple == 1) return 5;
+            if (simple == -1) return -5;
+            if (simple == 0) return 0;
+            return -99;
         }
 
         private static bool skipStock(MsgArray msgArray, List<string> tseRepeatList, List<string> otcRepeatList)
@@ -2273,74 +2284,58 @@ namespace TaskTrayApplication
                         priority = 4;
                     }
 
-                    //20 主進 
-                    tempVolDir = calcPanVolCntsSimple(panWeight, panVol, panAvgVolRate, panAmtRate, stockType);
-                    if ((panAvgVolRate >= 20 || panVol >= 950) && panAmtRate > 0)
+                    //統一量級判斷（20/10/5 倍主進主出）
+                    int panLevel = calcPanLevel(panAvgVolRate, panVol, panAmtRate, stockType, panWeight);
+                    tempVolDir = panLevel > 0 ? 1 : (panLevel < 0 ? -1 : (panLevel == 0 ? 0 : -99));
+                    switch (panLevel)
                     {
-                        ifMess = 1;
-                        messRise = 1;
-                        notifyStrTitle.Append($" 20 主進或盤量 >=950，瞬量拉升||");
-                        //pam, 瞬價 2%, //plv, 盤昨倍 //p5v, 盤5V //pav, 盤5V盤5倍 //pa10v, 盤5V盤10倍 //pa20v, 盤5V盤20倍
-                        insertAlertList(msgArray.c, $"20 主進", "pa20v", 1, false, panLastVolRate, panAvg5VolRate,
-                            panAvgVolRate, panAmtRate, panVol);
-                        priority = 4;
-                    }
-                    //20 主出
-                    else if ((panAvgVolRate >= 20 || panVol >= 950) && panAmtRate < 0)
-                    {
-                        ifMess = 1;
-                        messFall = 1;
-                        notifyStrTitle.Append($"20 主出或盤量 >=950，瞬量下殺||");
-                        insertAlertList(msgArray.c, $"20 主出", "pa20v", 0, false, panLastVolRate, panAvg5VolRate,
-                            panAvgVolRate, panAmtRate, panVol);
-                        priority = 4;
-                    }
-                    //10 主進
-                    else if ((panAvgVolRate >= 10 || panVol >= 600) && panAmtRate > 0)
-                    {
-                        ifMess = 1;
-                        messRise = 1;
-                        notifyStrTitle.Append($"10 主進或盤量 >=600，瞬量拉升||");
-                        //pam, 瞬價 2%, //plv, 盤昨倍 //p5v, 盤5V //pav, 盤5V盤5倍 //pa10v, 盤5V盤10倍 //pa20v, 盤5V盤20倍
-                        insertAlertList(msgArray.c, $"昨盤均 10 倍", "pa10v", 1, false, panLastVolRate, panAvg5VolRate,
-                            panAvgVolRate, panAmtRate, panVol);
-                        priority = 4;
-                    }
-                    //10 主出
-                    else if ((panAvgVolRate >= 10 || panVol >= 600) && panAmtRate < 0)
-                    {
-                        ifMess = 1;
-                        messFall = 1;
-                        notifyStrTitle.Append($"10 主出或盤量 >=600，瞬量下殺||");
-                        insertAlertList(msgArray.c, $"5盤均 10 倍", "pa10v", 0, false, panLastVolRate, panAvg5VolRate,
-                            panAvgVolRate, panAmtRate, panVol);
-                        priority = 4;
-                    }
-
-                    //主進
-                    else if (tempVolDir == 1)
-                    {
-                        ifMess = 1;
-                        messRise = 1;
-                        notifyStrTitle.Append($"主進或盤量 >=200，瞬量拉升||");
-                        insertAlertList(msgArray.c, $"主進", "pav", 1, false, panLastVolRate, panAvg5VolRate,
-                            panAvgVolRate, panAmtRate, panVol);
-                        priority = 4;
-                    }
-                    //主出
-                    else if (tempVolDir == -1)
-                    {
-                        messFall = 1;
-                        notifyStrTitle.Append($"主出或盤量 >=200，瞬量下殺||");
-                        insertAlertList(msgArray.c, $"主出", "pav", 0, false, panLastVolRate, panAvg5VolRate,
-                            panAvgVolRate, panAmtRate, panVol);
-                        priority = 4;
-                    }
-                    else if (tempVolDir == 0)
-                    {
-                        ifMess = 1;
-                        priority = 4;
-                        notifyStrTitle.Append($"昨盤均 5 倍以上或興櫃 or 昨盤均 5 倍以上或盤量 >=200，平盤||");
+                        case 20:
+                            ifMess = 1; messRise = 1;
+                            notifyStrTitle.Append($" 20 主進或盤量 >=950，瞬量拉升||");
+                            insertAlertList(msgArray.c, "20 主進", "pa20v", 1, false, panLastVolRate, panAvg5VolRate,
+                                panAvgVolRate, panAmtRate, panVol);
+                            priority = 4;
+                            break;
+                        case -20:
+                            ifMess = 1; messFall = 1;
+                            notifyStrTitle.Append($"20 主出或盤量 >=950，瞬量下殺||");
+                            insertAlertList(msgArray.c, "20 主出", "pa20v", 0, false, panLastVolRate, panAvg5VolRate,
+                                panAvgVolRate, panAmtRate, panVol);
+                            priority = 4;
+                            break;
+                        case 10:
+                            ifMess = 1; messRise = 1;
+                            notifyStrTitle.Append($"10 主進或盤量 >=600，瞬量拉升||");
+                            insertAlertList(msgArray.c, "昨盤均 10 倍", "pa10v", 1, false, panLastVolRate, panAvg5VolRate,
+                                panAvgVolRate, panAmtRate, panVol);
+                            priority = 4;
+                            break;
+                        case -10:
+                            ifMess = 1; messFall = 1;
+                            notifyStrTitle.Append($"10 主出或盤量 >=600，瞬量下殺||");
+                            insertAlertList(msgArray.c, "5盤均 10 倍", "pa10v", 0, false, panLastVolRate, panAvg5VolRate,
+                                panAvgVolRate, panAmtRate, panVol);
+                            priority = 4;
+                            break;
+                        case 5:
+                            ifMess = 1; messRise = 1;
+                            notifyStrTitle.Append($"主進或盤量 >=200，瞬量拉升||");
+                            insertAlertList(msgArray.c, "主進", "pav", 1, false, panLastVolRate, panAvg5VolRate,
+                                panAvgVolRate, panAmtRate, panVol);
+                            priority = 4;
+                            break;
+                        case -5:
+                            messFall = 1;
+                            notifyStrTitle.Append($"主出或盤量 >=200，瞬量下殺||");
+                            insertAlertList(msgArray.c, "主出", "pav", 0, false, panLastVolRate, panAvg5VolRate,
+                                panAvgVolRate, panAmtRate, panVol);
+                            priority = 4;
+                            break;
+                        case 0:
+                            ifMess = 1;
+                            priority = 4;
+                            notifyStrTitle.Append($"昨盤均 5 倍以上或興櫃 or 昨盤均 5 倍以上或盤量 >=200，平盤||");
+                            break;
                     }
 
                     //本盤量 > 5均量的 1/10

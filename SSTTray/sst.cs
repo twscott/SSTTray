@@ -942,21 +942,27 @@ namespace TaskTrayApplication
                         return true;
                     }
                 }
-                //shioaji server 不在，嘗試自動啟動
+                //shioaji server 不在，嘗試自動啟動（優先使用 VBS 隱藏啟動，無 terminal 視窗）
                 string sstDir = AppDomain.CurrentDomain.BaseDirectory;
                 string envDir = System.IO.Directory.GetParent(sstDir)?.Parent?.FullName ?? sstDir;
-                string batPath = System.IO.Path.Combine(envDir, "start_shioaji.bat");
-                if (!File.Exists(batPath))
-                    batPath = System.IO.Path.Combine(sstDir, "start_shioaji.bat");
-                if (File.Exists(batPath))
+                string bootPath = System.IO.Path.Combine(envDir, "start_shioaji.vbs");
+                if (!File.Exists(bootPath))
+                    bootPath = System.IO.Path.Combine(sstDir, "start_shioaji.vbs");
+                if (!File.Exists(bootPath))
+                {
+                    bootPath = System.IO.Path.Combine(envDir, "start_shioaji.bat");
+                    if (!File.Exists(bootPath))
+                        bootPath = System.IO.Path.Combine(sstDir, "start_shioaji.bat");
+                }
+                if (File.Exists(bootPath))
                 {
                     try
                     {
                         var proc = new System.Diagnostics.ProcessStartInfo
                         {
-                            FileName = batPath,
+                            FileName = bootPath,
                             WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-                            WorkingDirectory = System.IO.Path.GetDirectoryName(batPath)
+                            WorkingDirectory = System.IO.Path.GetDirectoryName(bootPath)
                         };
                         System.Diagnostics.Process.Start(proc);
                         System.Threading.Thread.Sleep(8000);

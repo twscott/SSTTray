@@ -61,3 +61,27 @@
 **下次繼續**：
 - 觀察下個交易日 alertlist 資料是否正常收集
 - 如 FirstohmService 需要更新監視路徑，後續處理
+
+### 2026-06-20 — detector() + insertAlertList() 重構 + Shioaji 隱藏啟動
+
+**完成項目**：
+- `insertAlertList()` pav direction=0 bug fix（panVol5CntPos → panVol5CntNeg）
+- `insertAlertList()` if-else 40 行 → AlertTypeMap Dictionary 查找表
+- 新增 `calcPanLevel()` 統一主進主出判斷，processAlert() 改 switch
+- `detector()` 移除 4 個無意義 `CommonClass.wait(1)`
+- `start_shioaji.vbs` 建立，Shioaji server 完全隱藏啟動（無 terminal）
+- 開機捷徑從 .bat 改指向 .vbs
+- `shioajiLogin()` 自動啟動優先嘗試 .vbs
+
+**產出文件**：
+- `start_shioaji.vbs`（新建）
+- `SSTTray/Docs/plans/2026-06-20-detector-insertAlertList-refactor-design.md`（新建）
+- `SSTTray/Docs/plans/2026-06-20-detector-insertAlertList-refactor-plan.md`（新建）
+- `SSTTray/sst.cs`（修改）
+- `SSTTray/TaskTrayApplicationContext.cs`（修改）
+- `start_shioaji.bat`（同一份，無修改）
+
+**Gate 狀態**：未觸達（重構維護週期）
+
+**下次繼續**：
+- 無待辦事項。下次開工時由工程師提出新維護需求。

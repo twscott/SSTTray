@@ -665,7 +665,6 @@ namespace TaskTrayApplication
                     $" a.amt=IFNull(PriceRate(a.CurrPrice-a.prePrice, a.lastPrice), 0) , a.amtDiff = IFNull(c.posAmtCnt- c.negAmtCnt,0)  " +
                     $" WHERE a.alertDate = CURRENT_DATE and GroupKey is null ";
                 CommonClass.execSQLNonQuery(sqlStr);
-                CommonClass.wait(1);
             }
             catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
 
@@ -681,7 +680,6 @@ namespace TaskTrayApplication
                         $" a.avg5VolRate = Round(a.onTimeVol/ a.avgVol5D ,1)" + 
                         $" where alertDate = CURRENT_DATE";
                 CommonClass.execSQLNonQuery(sqlStr);
-                CommonClass.wait(1);
             }
             catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
           
@@ -700,7 +698,6 @@ namespace TaskTrayApplication
                     $" and x.created >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 20 MINUTE) ";
 
                 CommonClass.execSQLNonQuery(sqlStr);
-                CommonClass.wait(1);
             }
             catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
 
@@ -716,7 +713,6 @@ namespace TaskTrayApplication
                        $" ) y on x.stockid = y.stockid  and x.recDate = y.dtcDate   " +
                        $" set x.stateStr = y.stateStr; ";
                 CommonClass.execSQLNonQuery(sqlStr);
-                CommonClass.wait(1);
             }
             catch (Exception ex) { detectorErrHandler(sqlStr, ex); }
 

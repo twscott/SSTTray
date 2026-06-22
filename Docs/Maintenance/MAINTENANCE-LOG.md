@@ -85,3 +85,27 @@
 
 **下次繼續**：
 - 無待辦事項。下次開工時由工程師提出新維護需求。
+
+### 2026-06-22 — 系統停擺排查 + 重建 exe + Shioaji Server 啟動
+
+**完成項目**：
+- 檢查 detector / alertlog 資料，發現最後一筆為 2026-05-01（停擺 52 天）
+- 發現 SSTTray.exe 啟動即 crash（`System.Net.Http` binding redirect 指到不存在的 v4.2.0.0）
+- 重建 SSTTray.exe（修正 C# 9.0 `init` / `GetValueOrDefault` 相容性問題）
+- 修正 `app.config` 中 System.Net.Http 版本設定（4.2.0.0 → 4.0.0.0）
+- 建立 Task Scheduler「SSTTray Monitor」：
+  - 登入時自動啟動
+  - 每分鐘檢查，不在就重啟
+- 驗證 Shioaji Server 健康（v1.5.3，CA 憑證至 2028，port 8080 正常運行）
+
+**產出文件**：
+- `SSTTray/SSTTray.csproj`（修改 - 新增 LangVersion 12.0）
+- `SSTTray/IsExternalInit.cs`（新建 - polyfill for init accessor）
+- `SSTTray/app.config`（修改 - System.Net.Http binding redirect）
+- `SSTTray/sst.cs`（修改 - GetValueOrDefault → TryGetValue）
+
+**Gate 狀態**：未觸達（非完整維護週期，屬診斷修復）
+
+**下次繼續**：
+- 觀察 2026-06-23 交易日 detector / alertlog 是否正常寫入資料
+- 確認 Task Scheduler 自動重啟機制正常運作

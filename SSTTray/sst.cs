@@ -1834,7 +1834,7 @@ namespace TaskTrayApplication
             string onDupStr = null;
             try
             {
-                var map = AlertTypeMap.GetValueOrDefault((pType, direction));
+                AlertTypeMap.TryGetValue((pType, direction), out var map);
                 if (map != null)
                     onDupStr = string.Join(", ", map.IncrementColumns.Select(c => $"{c} = {c}+1"));
 

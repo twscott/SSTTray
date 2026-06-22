@@ -12,6 +12,7 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <LangVersion>12.0</LangVersion>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
     <TargetFrameworkProfile />
@@ -405,6 +406,7 @@
     <Compile Include="FTPLib.cs" />
     <Compile Include="GlobalConst.cs" />
     <Compile Include="HtmlClass.cs" />
+    <Compile Include="IsExternalInit.cs" />
     <Compile Include="HtmlToPdf.cs">
       <SubType>Form</SubType>
     </Compile>

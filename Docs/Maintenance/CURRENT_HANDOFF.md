@@ -1,7 +1,7 @@
-# CURRENT_HANDOFF — SSTTray / detector() + insertAlertList() 重構
+# CURRENT_HANDOFF — SSTTray / 系統停擺診斷修復
 
-**Session 編號**：#3  
-**收工時間**：2026-06-20 18:00  
+**Session 編號**：#4  
+**收工時間**：2026-06-22 21:00  
 **收工工程師**：Scott Tseng
 
 ---
@@ -12,7 +12,7 @@
 |------|------|
 | **系統** | SSTTray（系統狀態列工具） |
 | **系統代碼** | `ssttray` |
-| **本次維護功能** | detector() + insertAlertList() 重構（抽出共享邏輯） + Shioaji 隱藏啟動 |
+| **本次維護功能** | 系統停擺診斷 + 重建 exe + Shioaji Server 啟動 |
 | **Git 分支** | master |
 | **當前步驟** | 已完成（等待下次維護需求） |
 | **總體進度** | 100% ✅ |
@@ -31,24 +31,29 @@
 
 ## ✅ 本次 Session 完成的事項
 
-### detector() + insertAlertList() 重構（Tasks 1-4）
-1. 🐛 **修 Bug**：`insertAlertList()` pav direction=0 誤加 `panVol5CntPos` → 改為 `panVol5CntNeg`
-2. ♻️ **Dictionary 重構**：40 行 if-else 鏈 → `AlertTypeMap` 查找表 + `AllAlertColumns` 自動產生 INSERT VALUES
-3. ♻️ **統一 calcPanLevel**：主進主出 20/10/5 倍判斷從 inline if-else → `calcPanLevel()` + switch
-4. ⚡ **移除 wait(1)**：`detector()` 中 4 個無意義 `CommonClass.wait(1)`
-
-### Shioaji server 隱藏啟動
-5. 🪟 **建立 `start_shioaji.vbs`**：用 VBScript 完全隱藏啟動 Shioaji server，無 terminal 視窗
-6. 🔗 **更新開機捷徑**：從指向 `start_shioaji.bat` 改為 `start_shioaji.vbs`
-7. 🔧 **更新 `shioajiLogin()`**：自動啟動時優先找 `.vbs`，找不到才用 `.bat`
+1. 🔍 檢查 detector / alertlog 資料 → 發現最後一筆為 2026-05-01（停擺 52 天）
+2. 🐛 診斷 SSTTray.exe 啟動 crash → `System.Net.Http` binding redirect 指到不存在的 v4.2.0.0
+3. 🔧 重建 SSTTray.exe（Release build）：
+   - C# 9.0 `{ get; init; }` 相容性 → 新增 `IsExternalInit.cs` polyfill
+   - `GetValueOrDefault()` → `TryGetValue()`（.NET Framework 4.7.2 相容）
+   - `LangVersion 12.0` 加入 csproj
+4. 🔧 修正 `app.config`：System.Net.Http binding redirect 4.2.0.0 → 4.0.0.0
+5. 📋 建立 Task Scheduler「SSTTray Monitor」：
+   - 登入時自動啟動
+   - 每天 00:00~23:59 每 1 分鐘檢查，不在就重啟
+6. ✅ 驗證 Shioaji Server（v1.5.3，port 8080，CA 憑證至 2028）
 
 ---
 
 ## ⏭️ 下次開工第一件事
 
-**操作**：等待工程師提出新的維護需求
+**操作**：觀察 2026-06-23 交易日 detector / alertlog 是否有資料
 
-**原因**：本次工作已全部完成，無進行中的維護任務
+**原因**：系統已重建並啟動，Shioaji Server 已啟動，明天交易時段（09:00~13:35）應自動恢復資料收集
+
+**注意**：
+- SSTTray.exe 使用 `bin\Release\SSTTray.exe`（不是根目錄舊 exe）
+- Task Scheduler 會每分鐘檢查 SSTTray 是否在執行
 
 ---
 
@@ -68,12 +73,12 @@
 
 | 檔案 | 路徑 | 狀態 |
 |------|------|------|
-| insertAlertList 重構 | `SSTTray/sst.cs` | ✅ 已修改（AlertTypeMap + panLevel） |
-| detector wait 移除 | `SSTTray/TaskTrayApplicationContext.cs` | ✅ 已修改（4 × wait(1) 移除） |
-| VBS 隱藏啟動 | `start_shioaji.vbs` | ✅ 新建 |
-| 開機捷徑 | `C:\Users\Scott.Tseng\...\Startup\ShioajiServer.lnk` | ✅ 更新指向 .vbs |
-| 設計文檔 | `SSTTray/Docs/plans/2026-06-20-detector-insertAlertList-refactor-design.md` | ✅ 新建 |
-| 實作計畫 | `SSTTray/Docs/plans/2026-06-20-detector-insertAlertList-refactor-plan.md` | ✅ 新建 |
+| 重建 exe | `SSTTray/bin/Release/SSTTray.exe` | ✅ 新建（2026-06-22） |
+| C# polyfill | `SSTTray/IsExternalInit.cs` | ✅ 新建 |
+| 專案設定 | `SSTTray/SSTTray.csproj` | ✅ 修改（LangVersion） |
+| 應用程式設定 | `SSTTray/app.config` | ✅ 修改（binding redirect） |
+| 股票分析核心 | `SSTTray/sst.cs` | ✅ 修改（TryGetValue） |
+| Task Scheduler | Windows 排程「SSTTray Monitor」 | ✅ 已建立 |
 
 ---
 
@@ -83,4 +88,5 @@
 |---------|------|------|------|
 | #1 | 2026-06-17 | First Apply + Shioaji Token 外移 | 首次接入 ✅ |
 | #2 | 2026-06-19 | Shioaji HTTP API 遷移 + 重構 + 通知 | 維護完成 ✅ |
-| **#3** | **2026-06-20** | **detector + insertAlertList 重構 + Shioaji 隱藏啟動** | **維護完成 ✅** |
+| #3 | 2026-06-20 | detector + insertAlertList 重構 + Shioaji 隱藏啟動 | 維護完成 ✅ |
+| **#4** | **2026-06-22** | **系統停擺診斷 + 重建 exe + Shioaji Server 啟動** | **待觀察 ✅** |

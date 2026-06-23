@@ -945,14 +945,19 @@ namespace TaskTrayApplication
                 //shioaji server 不在，嘗試自動啟動（優先使用 VBS 隱藏啟動，無 terminal 視窗）
                 string sstDir = AppDomain.CurrentDomain.BaseDirectory;
                 string envDir = System.IO.Directory.GetParent(sstDir)?.Parent?.FullName ?? sstDir;
+                string rootDir = System.IO.Directory.GetParent(envDir)?.FullName ?? sstDir;
                 string bootPath = System.IO.Path.Combine(envDir, "start_shioaji.vbs");
                 if (!File.Exists(bootPath))
                     bootPath = System.IO.Path.Combine(sstDir, "start_shioaji.vbs");
+                if (!File.Exists(bootPath))
+                    bootPath = System.IO.Path.Combine(rootDir, "start_shioaji.vbs");
                 if (!File.Exists(bootPath))
                 {
                     bootPath = System.IO.Path.Combine(envDir, "start_shioaji.bat");
                     if (!File.Exists(bootPath))
                         bootPath = System.IO.Path.Combine(sstDir, "start_shioaji.bat");
+                    if (!File.Exists(bootPath))
+                        bootPath = System.IO.Path.Combine(rootDir, "start_shioaji.bat");
                 }
                 if (File.Exists(bootPath))
                 {

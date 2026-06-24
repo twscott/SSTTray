@@ -1,7 +1,7 @@
-# CURRENT_HANDOFF — SSTTray / 系統停擺診斷修復
+# CURRENT_HANDOFF — SSTTray / 自動啟動修復
 
-**Session 編號**：#4  
-**收工時間**：2026-06-22 21:00  
+**Session 編號**：#5  
+**收工時間**：2026-06-24 10:30  
 **收工工程師**：Scott Tseng
 
 ---
@@ -12,9 +12,9 @@
 |------|------|
 | **系統** | SSTTray（系統狀態列工具） |
 | **系統代碼** | `ssttray` |
-| **本次維護功能** | 系統停擺診斷 + 重建 exe + Shioaji Server 啟動 |
+| **本次維護功能** | SSTTray + Shioaji Server 自動啟動（雙層架構） |
 | **Git 分支** | master |
-| **當前步驟** | 已完成（等待下次維護需求） |
+| **當前步驟** | 已完成，等待下次重開機驗證 |
 | **總體進度** | 100% ✅ |
 
 ---
@@ -31,35 +31,49 @@
 
 ## ✅ 本次 Session 完成的事項
 
-1. 🔍 檢查 detector / alertlog 資料 → 發現最後一筆為 2026-05-01（停擺 52 天）
-2. 🐛 診斷 SSTTray.exe 啟動 crash → `System.Net.Http` binding redirect 指到不存在的 v4.2.0.0
-3. 🔧 重建 SSTTray.exe（Release build）：
-   - C# 9.0 `{ get; init; }` 相容性 → 新增 `IsExternalInit.cs` polyfill
-   - `GetValueOrDefault()` → `TryGetValue()`（.NET Framework 4.7.2 相容）
-   - `LangVersion 12.0` 加入 csproj
-4. 🔧 修正 `app.config`：System.Net.Http binding redirect 4.2.0.0 → 4.0.0.0
-5. 📋 建立 Task Scheduler「SSTTray Monitor」：
-   - 登入時自動啟動
-   - 每天 00:00~23:59 每 1 分鐘檢查，不在就重啟
-6. ✅ 驗證 Shioaji Server（v1.5.3，port 8080，CA 憑證至 2028）
+### 問題
+電腦每天 06:00 重開機，~10:00 才有人登入。Shioaji Server 與 SSTTray.exe 都不會自動啟動，導致 6:00~10:00 之間 4 小時空白。
+
+### 根因
+1. Task Scheduler「SSTTray Monitor」設 `InteractiveToken`，須使用者登入才能執行
+2. 啟動資料夾有 `ShioajiServer.lnk` 但無 SSTTray 捷徑
+3. 無 Windows 自動登入設定，重開機後無人登入就無法啟動
+
+### 解決方案：雙層啟動架構
+
+**系統層（06:00 重開機後不須登入）：**
+- Windows 自動登入（Auto-Logon）設定：`FIRSTOHM\scott.tseng` 自動登入
+- 啟動資料夾 `SSTTray.lnk` → `start_ssttray.bat`
+
+**使用者層（登入後備援）：**
+- Task Scheduler「SSTTray Monitor」每分鐘檢查，不在就重啟
+- 備份原 `ShioajiServer.lnk` → `ShioajiServer.lnk.bak`
+
+### `start_ssttray.bat` 統一起動腳本
+- **Phase1**: Shioaji Server 啟動（`shioaji server start --no-open`）+ 健康檢查（最長等 60 秒）
+- **Phase2**: SSTTray.exe 啟動（from `bin\Release\SSTTray.exe`）
+- **Phase3**: 背景監控迴圈（每 60 秒檢查，掛了重啟）
+- 完全等冪設計（已執行中 → 跳過，安全重複執行）
+- 完整日誌寫入 `start_ssttray.log`
 
 ---
 
 ## ⏭️ 下次開工第一件事
 
-**操作**：觀察 2026-06-23 交易日 detector / alertlog 是否有資料
+**操作**：驗證下次重開機後自動啟動是否正常
 
-**原因**：系統已重建並啟動，Shioaji Server 已啟動，明天交易時段（09:00~13:35）應自動恢復資料收集
-
-**注意**：
-- SSTTray.exe 使用 `bin\Release\SSTTray.exe`（不是根目錄舊 exe）
-- Task Scheduler 會每分鐘檢查 SSTTray 是否在執行
+**檢查項目**：
+1. [ ] 06:00 重開機後，Windows 是否自動登入
+2. [ ] SSTTray.exe 是否在 system tray 中（不要只看 taskbar）
+3. [ ] Shioaji Server 是否正常（`curl http://127.0.0.1:8080/api/v1/health`）
+4. [ ] `D:\ScottWork\SSTTray\start_ssttray.log` 是否有啟動記錄
+5. [ ] 收盤後 alertlog 當日有資料（`mysql -u root sst -e "SELECT COUNT(*) FROM alertlog WHERE alertdate >= CURDATE()"`）
 
 ---
 
 ## ⚠️ 等待工程師處理的事項
 
-- 無
+- 無（本次為完整交付）
 
 ---
 
@@ -73,12 +87,14 @@
 
 | 檔案 | 路徑 | 狀態 |
 |------|------|------|
-| 重建 exe | `SSTTray/bin/Release/SSTTray.exe` | ✅ 新建（2026-06-22） |
-| C# polyfill | `SSTTray/IsExternalInit.cs` | ✅ 新建 |
-| 專案設定 | `SSTTray/SSTTray.csproj` | ✅ 修改（LangVersion） |
-| 應用程式設定 | `SSTTray/app.config` | ✅ 修改（binding redirect） |
-| 股票分析核心 | `SSTTray/sst.cs` | ✅ 修改（TryGetValue） |
-| Task Scheduler | Windows 排程「SSTTray Monitor」 | ✅ 已建立 |
+| 統一起動腳本 | `start_ssttray.bat` | ✅ 新建 |
+| 啟動日誌（自動產生） | `start_ssttray.log` | ✅ 自動產生 |
+| 設計文件 | `Docs/plans/2026-06-24-auto-startup-design.md` | ✅ 新建 |
+| 實作計畫 | `Docs/plans/2026-06-24-auto-startup-plan.md` | ✅ 新建 |
+| 啟動捷徑 | `%APPDATA%\...\Startup\SSTTray.lnk` | ✅ 新建 |
+| Shioaji 原捷徑 | `%APPDATA%\...\Startup\ShioajiServer.lnk.bak` | ✅ 更名備份 |
+| Task Scheduler | `\SSTTray Monitor`（動作 → start_ssttray.bat） | ✅ 更新 |
+| Windows 登錄檔 | `HKLM\...\Winlogon\AutoAdminLogon` | ✅ 設定自動登入 |
 
 ---
 
@@ -89,4 +105,5 @@
 | #1 | 2026-06-17 | First Apply + Shioaji Token 外移 | 首次接入 ✅ |
 | #2 | 2026-06-19 | Shioaji HTTP API 遷移 + 重構 + 通知 | 維護完成 ✅ |
 | #3 | 2026-06-20 | detector + insertAlertList 重構 + Shioaji 隱藏啟動 | 維護完成 ✅ |
-| **#4** | **2026-06-22** | **系統停擺診斷 + 重建 exe + Shioaji Server 啟動** | **待觀察 ✅** |
+| #4 | 2026-06-22 | 系統停擺診斷 + 重建 exe + Shioaji Server 啟動 | 待觀察 ✅ |
+| **#5** | **2026-06-24** | **自動啟動修復（雙層架構 + Auto-Logon）** | **待驗證 ✅** |

@@ -109,3 +109,27 @@
 **下次繼續**：
 - 觀察 2026-06-23 交易日 detector / alertlog 是否正常寫入資料
 - 確認 Task Scheduler 自動重啟機制正常運作
+
+### 2026-06-24 — 自動啟動修復（雙層架構 + Auto-Logon）
+
+**完成項目**：
+- 建立 `start_ssttray.bat` 統一起動腳本（等冪設計）：
+  - Phase1: Shioaji Server 啟動 + 健康檢查
+  - Phase2: SSTTray.exe 啟動
+  - Phase3: 背景監控每 60 秒
+- 設定 Windows 自動登入（`HKLM\...\Winlogon\AutoAdminLogon=1`）
+- 啟動資料夾新增 `SSTTray.lnk` → `start_ssttray.bat`
+- 備份原 `ShioajiServer.lnk` → `ShioajiServer.lnk.bak`
+- 更新 Task Scheduler 動作 → `start_ssttray.bat`
+
+**產出文件**：
+- `start_ssttray.bat`（新建 - 統一起動腳本）
+- `Docs/plans/2026-06-24-auto-startup-design.md`（新建 - 設計文件）
+- `Docs/plans/2026-06-24-auto-startup-plan.md`（新建 - 實作計畫）
+- `SSTTray/appCommon.cs`（未修改，僅參考）
+- `Docs/Maintenance/CURRENT_HANDOFF.md`（更新）
+
+**Gate 狀態**：未觸達（非完整維護週期）
+
+**下次繼續**：
+- 驗證下次重開機後自動啟動是否正常運作（確認 SSTTray / Shioaji / start_ssttray.log）

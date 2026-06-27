@@ -133,3 +133,23 @@
 
 **下次繼續**：
 - 驗證下次重開機後自動啟動是否正常運作（確認 SSTTray / Shioaji / start_ssttray.log）
+
+### 2026-06-27 — 資料修復 + MACD 本地計算
+
+**完成項目**：
+- `sst.cs` 新增 `syncWeekallClosingPrice()`（HTTP API 批次同步 weekall，成交量上市櫃÷1000→張）
+- `sst.cs` 新增 `calcMACD()`（從 tradedata 收盤價計算 DIF/MACD/OSC，不依賴 Goodinfo）
+- 修復 `sst.cs:1582` MV14/MV20 欄位錯位（`MV14`={mv14},`MV14`={mv20}→`MV20`={mv20}）
+- 修復 weekall 興櫃 OpenPriec=0 資料（27,375→754）
+- 修復 tradedata StockID 寫成 StockName（3,303→0）
+- 驗證 Goodinfo 各 Insert 函數 column 索引正確
+
+**產出文件**：
+- `SSTTray/sst.cs`（修改 - 新增 2 函數 + 修正 1 bug）
+- `Docs/Maintenance/CURRENT_HANDOFF.md`（更新 - Session #6）
+
+**Gate 狀態**：未觸達（非完整維護週期）
+
+**下次繼續**：
+- 執行 `sst.calcMACD()` 補回所有 MACD/DIF/OSC 資料
+- 觀察交易日 alertlog 資料正常收集

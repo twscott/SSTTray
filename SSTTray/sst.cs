@@ -1187,7 +1187,144 @@ namespace TaskTrayApplication
             }
         }
 
-        private static string buildSnapshotJson(List<string> stockIds)
+        /// <summary>
+        /// 每日收盤後同步 weekall（取代舊版 syncClosingPrice，改用 HTTP API）
+        /// 上市/上櫃：API 回傳股 ÷1000 → 張；興櫃保留股
+        /// 使用 ON DUPLICATE KEY UPDATE 支援盤中重複執行
+        /// </summary>
+        public static void syncWeekallClosingPrice()
+        {
+            DataTable dt = CommonClass.getSQLDataTable("SELECT id, stype FROM `stockid`", sstConnStr);
+            if (dt == null || dt.Rows.Count == 0) return;
+
+            var allStocks = new List<string>();
+            var stockTypeMap = new Dictionary<string, string>();
+            foreach (DataRow dr in dt.Rows)
+            {
+                string sid = dr["id"].ToString();
+                string stype = dr["stype"]?.ToString() ?? "";
+                allStocks.Add(sid);
+                stockTypeMap[sid] = stype;
+            }
+            if (allStocks.Count == 0) return;
+
+            string stockDate = DateTime.Now.ToString("yyyy-MM-dd");
+            int batchSize = 500;
+            for (int batchStart = 0; batchStart < allStocks.Count; batchStart += batchSize)
+            {
+                var batch = allStocks.Skip(batchStart).Take(batchSize).ToList();
+                string jsonBody = buildSnapshotJson(batch);
+                for (int retry = 0; retry < 3; retry++)
+                {
+                    try
+                    {
+                        var content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+                        var response = _httpClient.PostAsync("/api/v1/data/snapshots", content).Result;
+                        if (!response.IsSuccessStatusCode) { CommonClass.wait(5); continue; }
+
+                        string responseJson = response.Content.ReadAsStringAsync().Result;
+                        var resultLists = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(responseJson);
+                        if (resultLists == null || resultLists.Count == 0) { CommonClass.wait(5); continue; }
+
+                        foreach (var stockDict in resultLists)
+                        {
+                            try
+                            {
+                                object tmp;
+                                string code = stockDict.TryGetValue("code", out tmp) ? (tmp?.ToString() ?? "") : "";
+                                if (string.IsNullOrEmpty(code)) continue;
+
+                                string stype = stockTypeMap.ContainsKey(code) ? stockTypeMap[code] : "";
+                                double openVal = stockDict.TryGetValue("open", out tmp) ? Convert.ToDouble(tmp ?? "0") : 0;
+                                double closeVal = stockDict.TryGetValue("close", out tmp) ? Convert.ToDouble(tmp ?? "0") : 0;
+                                double highVal = stockDict.TryGetValue("high", out tmp) ? Convert.ToDouble(tmp ?? "0") : 0;
+                                double lowVal = stockDict.TryGetValue("low", out tmp) ? Convert.ToDouble(tmp ?? "0") : 0;
+                                long totalVol = stockDict.TryGetValue("total_volume", out tmp) ? Convert.ToInt64(tmp ?? "0") : 0;
+
+                                bool isOTC = stype.Contains("上櫃") || stype.Contains("otc");
+                                bool isEmerging = stype.Contains("興櫃") || stype.Contains("emerging") || stype.Contains("股");
+                                string exchangeType = isOTC ? "上櫃" : (isEmerging ? "興櫃" : "上市");
+                                long volWeekall = isEmerging ? totalVol : totalVol / 1000;
+                                double openForWeekall = (openVal > 0) ? openVal : closeVal;
+
+                                string sqlStr = $"insert into `weekAll` (`StockID`,`StockDate`,`OpenPriec`," +
+                                    $" `EndPrice`,`HPrice`,`LPrice`,`Vol`, stockType) " +
+                                    $" values ('{code}','{stockDate}', {openForWeekall}," +
+                                    $" {closeVal}, {highVal}, {lowVal}, {volWeekall}, '{exchangeType}') " +
+                                    $" ON DUPLICATE KEY UPDATE " +
+                                    $" EndPrice={closeVal}, HPrice={highVal}, LPrice={lowVal}, " +
+                                    $" Vol={volWeekall}, stockType='{exchangeType}'";
+                                CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+                            }
+                            catch { }
+                        }
+                        break;
+                    }
+                    catch { CommonClass.wait(5); }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 從 tradedata 收盤價計算 MACD (DIF/MACD/OSC)，不依賴外部 Goodinfo 來源
+        /// EMA12 = 12期指數移動平均；EMA26 = 26期指數移動平均
+        /// DIF = EMA12 - EMA26；MACD = 9期EMA(DIF)；OSC = DIF - MACD
+        /// </summary>
+        public static void calcMACD()
+        {
+            DataTable stockDt = CommonClass.getSQLDataTable(
+                "SELECT DISTINCT StockID FROM tradedata ORDER BY StockID", sstConnStr);
+            if (stockDt == null || stockDt.Rows.Count == 0) return;
+
+            int done = 0;
+            foreach (DataRow dr in stockDt.Rows)
+            {
+                string sid = dr["StockID"].ToString();
+                DataTable priceDt = CommonClass.getSQLDataTable(
+                    $"SELECT TransDate, StockPrice FROM tradedata " +
+                    $"WHERE StockID='{sid}' AND StockPrice > 0 " +
+                    $"ORDER BY TransDate", sstConnStr);
+                if (priceDt == null || priceDt.Rows.Count < 26) continue;
+
+                double alpha12 = 2.0 / 13;
+                double alpha26 = 2.0 / 27;
+                double ema12 = Convert.ToDouble(priceDt.Rows[0]["StockPrice"]);
+                double ema26 = Convert.ToDouble(priceDt.Rows[0]["StockPrice"]);
+
+                var difList = new List<Tuple<string, double>>();
+
+                for (int i = 0; i < priceDt.Rows.Count; i++)
+                {
+                    double price = Convert.ToDouble(priceDt.Rows[i]["StockPrice"]);
+                    if (i == 0) continue;
+                    ema12 = alpha12 * price + (1 - alpha12) * ema12;
+                    ema26 = alpha26 * price + (1 - alpha26) * ema26;
+                    double dif = ema12 - ema26;
+                    difList.Add(Tuple.Create(priceDt.Rows[i]["TransDate"].ToString(), dif));
+                }
+
+                if (difList.Count < 9) continue;
+
+                // 計算 MACD (9期EMA of DIF)
+                double alphaMacd = 2.0 / 10;
+                double macdEma = difList[0].Item2;
+                for (int i = 1; i < difList.Count; i++)
+                {
+                    macdEma = alphaMacd * difList[i].Item2 + (1 - alphaMacd) * macdEma;
+                    double osc = difList[i].Item2 - macdEma;
+
+                    string sqlStr = $"UPDATE tradedata SET " +
+                        $"DIF='{Math.Round(difList[i].Item2, 2)}', " +
+                        $"MACD='{Math.Round(macdEma, 2)}', " +
+                        $"OSC='{Math.Round(osc, 2)}' " +
+                        $"WHERE StockID='{sid}' AND TransDate='{difList[i].Item1}'";
+                    CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+                }
+                done++;
+                if (done % 200 == 0)
+                    EventLog.WriteEntry(Constants.source, $"calcMACD: {done} stocks done", EventLogEntryType.Information);
+            }
+        }
         {
             var contracts = new List<Dictionary<string, string>>();
             foreach (var sid in stockIds)
@@ -1442,7 +1579,7 @@ namespace TaskTrayApplication
             sqlStr = $"update `stock60days` set `MA5`={ma5},`MA10`={ma10}," +
                      $" `MA14`={ma14},`MA20`={ma20},`MA35`={ma35},`MA60`={ma60}, " +
                      $" `MV5`={mv5},`MV10`={mv10}," +
-                     $" `MV14`={mv14},`MV14`={mv20},`MV35`={mv35},`MV60`={mv60} " +
+                     $" `MV14`={mv14},`MV20`={mv20},`MV35`={mv35},`MV60`={mv60} " +
                      $" where `StockID` = '{stockid}' and `StockDate` = '{dataDate}'";
             CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
             sqlStr = $"SELECT * FROM `stockconfig` ";

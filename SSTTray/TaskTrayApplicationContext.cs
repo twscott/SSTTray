@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Windows.Forms;
@@ -13,6 +13,8 @@ using System.Data;
 using System.Linq;
 using System.Globalization;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using System.IO;
 using DocumentFormat.OpenXml.ExtendedProperties;
 using Sinopac.Shioaji;
 
@@ -30,6 +32,7 @@ namespace TaskTrayApplication
         webAPI webApiForm = new webAPI();
         FormDoSST frmDoSst = null;
         System.Timers.Timer timerSysTray;
+        volatile bool processingTick = false; //O2: Timer 重入防護 — 上一輪未完成時跳過本 tick
         CommonBackup cmBK = new CommonBackup();
         List<string> autoExecItems = null; //要Timer 定期執行的項目
         bool ifAskWhenRestart = true;
@@ -1142,8 +1145,44 @@ namespace TaskTrayApplication
                 //linelib.pushTextMessageByWebapiAsync("scott.tseng", $"sst_sendLine()  開盤發Line錯誤:{ex.Message}");
             }
         }
+        //B1: shioaji server（daemon）生命週期；.env 由部署目錄提供（SJ_API_KEY/SJ_SEC_KEY）
+        private void StartShioajiServer()
+        {
+            if (ShioajiHttpClient.IsServerUp()) return;
+            string exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local\\bin\\shioaji.exe");
+            if (!File.Exists(exe))
+            {
+                CommonClass.sendmailEazy("shioaji CLI 未安裝： " + exe, "3", "scott.tseng@firstohm.com.tw", "shioaji server start 失敗");
+                return;
+            }
+            string envDir = Constants.getProperty("shioajiEnvDir", @"C:\SSTTray");
+            try
+            {
+                Process.Start(new ProcessStartInfo(exe, "server start") { WorkingDirectory = envDir, CreateNoWindow = true, UseShellExecute = false });
+                CommonClass.wait(5);
+                if (!ShioajiHttpClient.IsServerUp())
+                    CommonClass.sendmailEazy("server start 後 health check 失敗（" + ShioajiHttpClient.ServerInfo() + "）", "3", "scott.tseng@firstohm.com.tw", "shioaji server 異常");
+            }
+            catch (Exception ex)
+            {
+                CommonClass.sendmailEazy("start shioaji server: " + ex.Message, "3", "scott.tseng@firstohm.com.tw", "shioaji server start 失敗");
+            }
+        }
+
+        private void StopShioajiServer()
+        {
+            string exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local\\bin\\shioaji.exe");
+            if (!File.Exists(exe)) return;
+            try { Process.Start(new ProcessStartInfo(exe, "server stop") { CreateNoWindow = true, UseShellExecute = false }); }
+            catch { }
+        }
+
         public void OnTimer_timerSysTray(object sender, System.Timers.ElapsedEventArgs args)
         {
+            //O2 重入防護：System.Timers.Timer 會並行觸發 Elapsed，上一輪未跑完時直接跳過本 tick（避免雙抓雙寫）
+            if (processingTick)
+                return;
+            processingTick = true;
             try
             {
                 string sqlStr = null;
@@ -1159,11 +1198,16 @@ namespace TaskTrayApplication
                     sst_sendLine(2);
                 else if (!CommonClass.isHoliday(DateTime.Now, true) && currHour == 6 && currMin == 30)
                     sst_sendLine(1);
+                //B1: shioaji server 生命週期（工程師定案：交易日開盤前 30 分鐘 08:30 啟動、14:00 停止）
+                if (currHour == 8 && currMin == 30)
+                    StartShioajiServer();
+                else if (currHour == 14 && currMin == 0)
+                    StopShioajiServer();
                 ///////////////////////////
                  
                 if (autoExecItems.Contains("do_sst") 
                     && currentTime.TimeOfDay >= new TimeSpan(8, 0, 0)
-                    && currentTime.TimeOfDay <= new TimeSpan(13, 42, 0))
+                    && currentTime.TimeOfDay <= new TimeSpan(13, 31, 0)) //O7: 交易 09:00–13:30（工程師確認），允許 13:30 最後一輪
                 {
 
                     if (doSSTTime.Date <= DateTime.Now.Date)
@@ -1243,12 +1287,7 @@ namespace TaskTrayApplication
                             calcRecommand();
                             sst_sendLine(3);
                         }
-                        else if (currHour > 13 && (currMin % 10 == 0)) //收盤以後， 10分鐘一次
-                        {
-                            sst.do_sst(currHour, currMin, Constants.SSTConnString, 1);
-                            detector();
-                            calcRecommand();
-                        }
+                        //O7: 收盤=13:30（工程師確認），取消原「>13 點每 10 分」的收盤後輪詢分支
                         if (currHour >= 9 && currHour < 14 && (currMin == 30 || currMin == 0))
                             sst_sendLine(2, currMin);
                     }
@@ -1347,6 +1386,10 @@ namespace TaskTrayApplication
                 CommonClass.smtpSendMail($"{ex.Message}{Environment.NewLine}{Environment.NewLine}{ex.StackTrace}  ",
                     new Dictionary<string, string>() { { "Scott Tseng", "scott.tseng@firstohm.com.tw" } },
                     true, "sstTray Timer 錯誤");
+            }
+            finally
+            {
+                processingTick = false;
             }
 
         }

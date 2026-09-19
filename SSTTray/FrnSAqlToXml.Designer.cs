@@ -1,4 +1,4 @@
-﻿
+
 namespace TaskTrayApplication
 {
     partial class FrnSAqlToXml
@@ -75,7 +75,7 @@ namespace TaskTrayApplication
             this.txtConnStr.Name = "txtConnStr";
             this.txtConnStr.Size = new System.Drawing.Size(1119, 36);
             this.txtConnStr.TabIndex = 22;
-            this.txtConnStr.Text = "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=conutris" +
+            this.txtConnStr.Text = "Data Source=192.168.1.33;Password=" + FirstOhm.Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=conutris" +
     "tore;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
             // 
             // label2

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
@@ -4588,22 +4588,22 @@ namespace TaskTrayApplication
         #region auto akeeba backup
         public static Dictionary<string, string> webBackupList = new Dictionary<string, string>()
         {
-            {"台北Portal", @"http://192.168.1.33:8080/Portal/index.php?option=com_akeeba&view=Backup&key=REDACTED" },
-            {"台北決策網", @"http://192.168.1.33:8080/statistics/index.php?option=com_akeeba&view=Backup&key=REDACTED" },
-            {"Diggo",@"https://diggo.com.tw/index.php?option=com_akeeba&view=Backup&key=REDACTED"},
-            {"FirstohmPay",@"https://pay.firstohm.com.tw/index.php?option=com_akeeba&view=Backup&key=REDACTED"},
-            {"花蓮Portal", @"http://172.168.1.151:8080/Portal/index.php?option=com_akeeba&view=Backup&key=REDACTED" },
-            {"portal29", "http://192.168.1.29:8080/portal/index.php?option=com_akeeba&view=Backup&key=REDACTED "}
+            {"台北Portal", @"http://192.168.1.33:8080/Portal/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_A") },
+            {"台北決策網", @"http://192.168.1.33:8080/statistics/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_C") },
+            {"Diggo",@"https://diggo.com.tw/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_D")},
+            {"FirstohmPay",@"https://pay.firstohm.com.tw/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_B")},
+            {"花蓮Portal", @"http://172.168.1.151:8080/Portal/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_A") },
+            {"portal29", "http://192.168.1.29:8080/portal/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_E") }
         };
 
         public static void autoAkeebaBackup()
         {
             //List<string> listUrls = new List<string>()
             //{
-            //    @"http://192.168.1.33:8080/Portal/index.php?option=com_akeeba&view=Backup&key=REDACTED",
-            //    @"https://pay.firstohm.com.tw/index.php?option=com_akeeba&view=Backup&key=REDACTED",
-            //    @"https://diggo.com.tw/index.php?option=com_akeeba&view=Backup&key=REDACTED",
-            //    @"https://diggo.com.tw/index.php?option=com_akeeba&view=Backup&key=REDACTED",
+            //    @"http://192.168.1.33:8080/Portal/index.php?option=com_akeeba&view=Backup&key=***",
+            //    @"https://pay.firstohm.com.tw/index.php?option=com_akeeba&view=Backup&key=***",
+            //    @"https://diggo.com.tw/index.php?option=com_akeeba&view=Backup&key=***",
+            //    @"https://diggo.com.tw/index.php?option=com_akeeba&view=Backup&key=***",
             //};
             foreach (KeyValuePair<string, string> targerUrl in webBackupList)
             {

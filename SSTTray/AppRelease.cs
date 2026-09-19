@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -145,7 +145,7 @@ namespace TaskTrayApplication
             if (!UI_verifyVersionNo(lastVersionNo, false))
                 return;
             string fileName = CommonClass.getFileInfo(textAppFilePath.Text, "name");
-            FTPExtensions ftp = new FTPExtensions("172.168.1.151", "REDACTED", "REDACTED");
+            FTPExtensions ftp = new FTPExtensions("172.168.1.151", FirstOhm.Secrets.Get("SST_FTP_USER"), FirstOhm.Secrets.Get("SST_FTP_PWD"));
             if (!ftp.Upload($"/wwwroot/firstohmWebapi/{fileName}", textAppFilePath.Text))
                 return;
             string ipAddress = CommonClass.GetLocalIPAddress();

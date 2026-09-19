@@ -1,4 +1,4 @@
-﻿//參考/組件/System.Data.DataSetExtensions.dll 需勾選
+//參考/組件/System.Data.DataSetExtensions.dll 需勾選
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -1413,10 +1413,24 @@ namespace FirstOhm
             return rtnStr;
         }
 
+        //真參數化版本（MySqlParameter.AddWithValue），2026-09-19 由 combineParams 字串代換升級
         public static DataTable getSQLDataTableParams(String sqlCommand, Dictionary<string, string> sqlparams, String ConnString = Constants.ConnString)
         {
-            sqlCommand = combineParams(sqlCommand, sqlparams);
-            return getSQLDataTable(sqlCommand, ConnString);
+            using (MySqlConnection SQLCON = new MySqlConnection(ConnString))
+            {
+                SQLCON.Open();
+                MySqlCommand cmd = SQLCON.CreateCommand();
+                cmd.CommandText = sqlCommand;
+                foreach (var paramItem in sqlparams)
+                {
+                    cmd.Parameters.AddWithValue(paramItem.Key, paramItem.Value);
+                }
+                MySqlDataAdapter da = new MySqlDataAdapter(cmd);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+                SQLCON.Close();
+                return dt;
+            }
         }
 
         //若無資料 dbResult != DBNull.Value
@@ -3876,7 +3890,7 @@ namespace FirstOhm
                 }
 
                 SmtpClient client = new SmtpClient();
-                client.Credentials = new System.Net.NetworkCredential("sysagent@conutri.com", "REDACTED"); //這裡要填正確的帳號跟密碼
+                client.Credentials = new System.Net.NetworkCredential("sysagent@conutri.com", Secrets.Get("SST_SMTP_PWD")); //密碼由環境變數提供（Docs/SECRETS.md）
                 client.Host = "211.23.138.231"; //設定smtp Server
                 client.Port = 25; //設定Port
                 client.EnableSsl = false; //gmail預設開啟驗證

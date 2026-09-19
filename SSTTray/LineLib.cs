@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
@@ -33,7 +33,7 @@ namespace FirstOhm
         };
         //string token = @"3pjYn+6gs3G1dISd6w8Xb8vCOIWiz5ojncvzdVB1jV24nSASa/walrkRhrFMU4kqaRBTZQOZ7S3SplRGUMVfk7sdkYHb1bfgpRuGSoRciWKbGNqhnKDddNPD4pn2ARd8rFG92itQIY+mqjGuLOGmO1GUYhWQfeY8sLGRXgo3xvw=";
         string token = @"3pjYn+6gs3G1dISd6w8Xb8vCOIWiz5ojncvzdVB1jV24nSASa/walrkRhrFMU4kqaRBTZQOZ7S3SplRGUMVfk7sdkYHb1bfgpRuGSoRciWKbGNqhnKDddNPD4pn2ARd8rFG92itQIY+mqjGuLOGmO1GUYhWQfeY8sLGRXgo3xvw=";
-        string apiKey = Constants.getProperty("lineAppApiKey", "REDACTED");
+        string apiKey = Constants.getProperty("lineAppApiKey", Secrets.Get("SST_LINE_APP_KEY"));
         string lineURL = Constants.getProperty("lineURL", "http://192.168.1.33:8080/Portal");
 
         private string getUserID(string portalLoginName)
@@ -135,8 +135,8 @@ namespace FirstOhm
         //    Dictionary<string, string> lineMsg = new Dictionary<string, string>()
         //    {
         //        {"fun","sendlineByParams"},
-        //        {"pk",$"{DateTime.Now.Year + DateTime.Now.Month + DateTime.Now.Day}REDACTED"},
-        //        {"key","REDACTED"}
+        //        {"pk",$"{DateTime.Now.Year + DateTime.Now.Month + DateTime.Now.Day}***"},
+        //        {"key","***"}
         //    };
         //    LineMsg lineParams = new LineMsg();
         //    List<string> lineUserIDs = new List<string>();
@@ -161,7 +161,7 @@ namespace FirstOhm
             Dictionary<string, string> lineMsg = new Dictionary<string, string>()
             {
                 {"fun","sendlineOuter"},
-                {"pk",$"{DateTime.Now.Year + DateTime.Now.Month + DateTime.Now.Day}REDACTED"},
+                {"pk",$"{DateTime.Now.Year + DateTime.Now.Month + DateTime.Now.Day}{Secrets.Get("SST_DB_PWD").Replace(" ", "")}"},
                 {"msg", msgToSend },
                 {"userid", lineUserDict[userName]}
             };
@@ -178,8 +178,8 @@ namespace FirstOhm
             {
                 //{"fun","sendlineByParamsmulti"},
                 {"fun","sendlineByParamssingle"},
-                {"pk",$"{DateTime.Now.Year + DateTime.Now.Month + DateTime.Now.Day}REDACTED"},
-                {"key","REDACTED"},
+                {"pk",$"{DateTime.Now.Year + DateTime.Now.Month + DateTime.Now.Day}{Secrets.Get("SST_DB_PWD").Replace(" ", "")}"},
+                {"key",Secrets.Get("SST_LINE_KEY")},
                 {"msg", msgToSend }
             };
             foreach (string username in userNamesList)

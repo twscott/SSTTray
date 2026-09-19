@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
@@ -13,6 +13,8 @@ namespace FirstOhm
 {
     class CommonBackup
     {
+        //DB 密碼一律由環境變數提供（FirstOhm.Secrets / Docs/SECRETS.md）
+        static string S => Secrets.Get("SST_DB_PWD");
         //User 選取的 ConnectionStrings
         public List<string> preViewList = new List<string>();
         public List<string> tableEngindInnoDBList = new List<string>();
@@ -47,104 +49,104 @@ namespace FirstOhm
         //TP211
         public Dictionary<string, string> TaipeiConnections211 = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            {"MFO_FLOW_TEST1" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"MFO_FLOW" , "Data Source = 211.23.138.231; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
-            {"MFO_FLOW_TEST" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse_test" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse_test1" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_Sales",  "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_Sales_Test",  "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales_Test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm",  "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"MFO_FLOW_TEST1" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=MFO_FLOW_TEST1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"MFO_FLOW" , "Data Source = 211.23.138.231; Password=" + S + ";User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
+            {"MFO_FLOW_TEST" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse_test" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse_test1" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_Sales",  "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_Sales_Test",  "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=Firstohm_Sales_Test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm",  "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
 
-            {"common" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=common;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"conutri" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=conutri;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"ConutriSale" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=ConutriSale;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"html" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=html;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"mxtest" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=mxtest;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"surveillance" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=surveillance;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"web" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=web;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"ChkIn_Out" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_auto_order" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_SAMPLE" , "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"exchange", "Data Source=211.23.138.231;Password=REDACTED;User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"}
+            {"common" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=common;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"conutri" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=conutri;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"ConutriSale" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=ConutriSale;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"html" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=html;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"mxtest" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=mxtest;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"surveillance" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=surveillance;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"web" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=web;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"ChkIn_Out" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_auto_order" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_SAMPLE" , "Data Source=211.23.138.231;Password=" + S + ";User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"exchange", "Data Source=211.23.138.231;Password=" + S + ";User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"}
         };
         //TP33, 192.33
         public Dictionary<string, string> Taipei192_33Connections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            {"MFO_FLOW" , "Data Source =192.168.1.33; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
-            {"procurement" , "Data Source =192.168.1.33; Password=REDACTED;User ID = firstohm; Database=procurement;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
-            {"MFO_FLOW_TEST1" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"MFO_FLOW" , "Data Source =192.168.1.33; Password=" + S + ";User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
+            {"procurement" , "Data Source =192.168.1.33; Password=" + S + ";User ID = firstohm; Database=procurement;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
+            {"MFO_FLOW_TEST1" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=MFO_FLOW_TEST1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
 
-            {"MFO_FLOW_TEST" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse_test" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse_test1" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_Sales",  "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_Sales_Test",  "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales_Test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm",        "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_auto_order" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"common" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=common;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"conutri" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=conutri;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"ConutriSale" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=ConutriSale;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"html" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=html;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"mxtest" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=mxtest;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;"},
-            {"surveillance" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=surveillance;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"web" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=web;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"ChkIn_Out" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_SAMPLE" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=Non;default command timeout=180"},
-            {"exchange", "Data Source=192.168.1.33;Password=REDACTED;User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"statistics" , "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=statistics;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"portal", "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"portal-new", "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=portal-new;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"SST", "Data Source = 192.168.1.33; Password=REDACTED;User ID = firstohm; Database=sst;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180" },
-            {"SSTV2", "Data Source = 192.168.1.33; Password=REDACTED;User ID = firstohm; Database=sstv2;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180" }
+            {"MFO_FLOW_TEST" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse_test" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse_test1" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_Sales",  "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_Sales_Test",  "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=Firstohm_Sales_Test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm",        "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_auto_order" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"common" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=common;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"conutri" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=conutri;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"ConutriSale" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=ConutriSale;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"html" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=html;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"mxtest" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=mxtest;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;"},
+            {"surveillance" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=surveillance;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"web" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=web;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"ChkIn_Out" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_SAMPLE" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=Non;default command timeout=180"},
+            {"exchange", "Data Source=192.168.1.33;Password=" + S + ";User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"statistics" , "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=statistics;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"portal", "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"portal-new", "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=portal-new;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"SST", "Data Source = 192.168.1.33; Password=" + S + ";User ID = firstohm; Database=sst;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180" },
+            {"SSTV2", "Data Source = 192.168.1.33; Password=" + S + ";User ID = firstohm; Database=sstv2;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180" }
         };
 
         //花蓮 172.168.1.151
         //HL151
         public Dictionary<string, string> HualianConnections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-           {"MFO_FLOW_TEST1" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"MFO_FLOW" , "Data Source = 172.168.1.151; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
-            {"MFO_FLOW_TEST" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse_test" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse_test1" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_Sales",  "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm",  "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_auto_order" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"common" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=common;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"conutri" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=conutri;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"ConutriSale" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=ConutriSale;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"html" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=html;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"mxtest" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=mxtest;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+           {"MFO_FLOW_TEST1" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=MFO_FLOW_TEST1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"MFO_FLOW" , "Data Source = 172.168.1.151; Password=" + S + ";User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
+            {"MFO_FLOW_TEST" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse_test" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse_test1" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_Sales",  "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm",  "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_auto_order" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"common" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=common;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"conutri" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=conutri;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"ConutriSale" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=ConutriSale;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"html" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=html;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"mxtest" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=mxtest;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
 
-            {"surveillance" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=surveillance;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"web" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=web;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"ChkIn_Out" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_SAMPLE" , "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"exchange", "Data Source=172.168.1.151;Password=REDACTED;User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"portal", "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"procurement", "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"}
+            {"surveillance" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=surveillance;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"web" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=web;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"ChkIn_Out" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_SAMPLE" , "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"exchange", "Data Source=172.168.1.151;Password=" + S + ";User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"portal", "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"procurement", "Data Source=172.168.1.151;Password=" + S + ";User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"}
         };
 
         //花蓮 172.168.1.33
         //HL33
         public Dictionary<string, string> Hualian172_33Connections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            //{"MFO_FLOW" , "Data Source = 172.168.1.33; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
-            //{"WareHouse" , "Data Source=172.168.1.33;Password=REDACTED;User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            //{"WareHouse_test1" , "Data Source=172.168.1.33;Password=REDACTED;User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            //{"Firstohm_Sales",  "Data Source=172.168.1.33;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            //{"Firstohm",  "Data Source=172.168.1.33;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            //{"ChkIn_Out" , "Data Source=172.168.1.33;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            //{"Firstohm_SAMPLE" , "Data Source=172.168.1.33;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            //{"Firstohm_auto_order" , "Data Source=172.168.1.33;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            //{"exchange", "Data Source=172.168.1.33;Password=REDACTED;User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            //{"procurement", "Data Source=172.168.1.33;Password=REDACTED;User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"SST", "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=sst;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"SSTV2", "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=sstv2;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"}
+            //{"MFO_FLOW" , "Data Source = 172.168.1.33; Password=" + S + ";User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
+            //{"WareHouse" , "Data Source=172.168.1.33;Password=" + S + ";User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            //{"WareHouse_test1" , "Data Source=172.168.1.33;Password=" + S + ";User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            //{"Firstohm_Sales",  "Data Source=172.168.1.33;Password=" + S + ";User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            //{"Firstohm",  "Data Source=172.168.1.33;Password=" + S + ";User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            //{"ChkIn_Out" , "Data Source=172.168.1.33;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            //{"Firstohm_SAMPLE" , "Data Source=172.168.1.33;Password=" + S + ";User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            //{"Firstohm_auto_order" , "Data Source=172.168.1.33;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            //{"exchange", "Data Source=172.168.1.33;Password=" + S + ";User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            //{"procurement", "Data Source=172.168.1.33;Password=" + S + ";User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"SST", "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=sst;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"SSTV2", "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=sstv2;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"}
 
         };
 
@@ -152,18 +154,18 @@ namespace FirstOhm
         //HL35
         public Dictionary<string, string> Hualian172_35Connections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            {"MFO_FLOW" , "Data Source = 172.168.1.35; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
-            {"WareHouse" , "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"WareHouse_test1" , "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_Sales",  "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm",  "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"ChkIn_Out" , "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_SAMPLE" , "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"Firstohm_auto_order" , "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"exchange", "Data Source=172.168.1.35;Password=REDACTED;User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
-            {"procurement", "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=Non;default command timeout=180"},
-            {"SST", "Data Source = 172.168.1.35; Password=REDACTED;User ID = firstohm; Database=sst;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180" },
-            {"SSTV2", "Data Source = 172.168.1.35; Password=REDACTED;User ID = firstohm; Database=sstv2;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180" }
+            {"MFO_FLOW" , "Data Source = 172.168.1.35; Password=" + S + ";User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180"},
+            {"WareHouse" , "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"WareHouse_test1" , "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=WareHouse_test1;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_Sales",  "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm",  "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"ChkIn_Out" , "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_SAMPLE" , "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"Firstohm_auto_order" , "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"exchange", "Data Source=172.168.1.35;Password=" + S + ";User ID=root;Database=exchange;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=180"},
+            {"procurement", "Data Source=172.168.1.35;Password=" + S + ";User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=Non;default command timeout=180"},
+            {"SST", "Data Source = 172.168.1.35; Password=" + S + ";User ID = firstohm; Database=sst;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180" },
+            {"SSTV2", "Data Source = 172.168.1.35; Password=" + S + ";User ID = firstohm; Database=sstv2;port=3306;charset=utf8;convert zero datetime=True;default command timeout=180" }
         };
 
         //172.0.0.1
@@ -180,8 +182,8 @@ namespace FirstOhm
         //Portal Server
         //public Dictionary<string, string> PortalConnections = new Dictionary<string, string>()
         //{
-        //    {"portal", "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;" },
-        //    {"portal-new", "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=portal-new;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;" }
+        //    {"portal", "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;" },
+        //    {"portal-new", "Data Source=192.168.1.33;Password=" + S + ";User ID=firstohm;Database=portal-new;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;" }
         //};
 
         //指定每個資料庫的主要 SErver

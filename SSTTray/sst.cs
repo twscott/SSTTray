@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Configuration;
@@ -33,6 +33,48 @@ namespace TaskTrayApplication
 {
     class sst
     {
+        //DB 欄位轉 long（NULL→0），供參數化 SQL 使用
+        //O1(b): alertlog 多行批次 INSERT —— 語意等價於原逐檔 INSERT+ON DUPLICATE（onDup 全欄位以 VALUES(col) 寫回；
+        //       原 onDup 的 panAvg5VolRate 用 avg5VolRateDup(=avg5Vol==0?panVol:panVol/avg5Vol)，與 INSERT 欄位同一公式 → VALUES(panAvg5VolRate) 等價）
+        private static void FlushAlertLogBatch(List<Dictionary<string, string>> rows, string conn)
+        {
+            if (rows == null || rows.Count == 0) return;
+            StringBuilder sb = new StringBuilder();
+            Dictionary<string, string> prm = new Dictionary<string, string>();
+            sb.Append("insert into `alertlog` (CREATED, `StockID`,`StockName`, lastDate, AlertTitle, `AlertType`, " +
+                " `CurrPrice`,`CurrVol`, panVol, panTrans, panVolTransRate, diffPrice, DiffRate, recommandBy, recommandPrice, " +
+                " priority, stockPriority, `prePrice`,`preVol`,`preTime`, lastVolRate, avg5VolRate, instantMass, messRise, messFall, " +
+                " instantRise, instantFall, InstRiseFallRate, panAmtDiff, panAmtRate, panAvgVolRate, panLastVolRate, panAvg5VolRate, " +
+                " `instantBuyVol`,`instantSellVol`, `instantIdx`, OpenPriec, instantJumpKong, lastPrice, lastVol, avg5Vol, pDiff, alertDate, panvolScore) Values ");
+            for (int i = 0; i < rows.Count; i++)
+            {
+                Dictionary<string, string> r = rows[i];
+                sb.Append(i == 0 ? "(" : ",(");
+                sb.Append($"@i{i}_alertTime, @i{i}_c, @i{i}_n, @i{i}_lastDate, @i{i}_AlertTitle, @i{i}_AlertType, " +
+                    $" @i{i}_z, @i{i}_onTimeVol, @i{i}_panVol, @i{i}_panTrans, @i{i}_transRate, @i{i}_diffPrice, " +
+                    $" @i{i}_diffRate, @i{i}_recommandBy, '0', @i{i}_priority, @i{i}_stockPriority, " +
+                    $" @i{i}_prePrice, @i{i}_preVol, @i{i}_preTime, @i{i}_lastVolRate, @i{i}_avg5VolRate, " +
+                    $" @i{i}_ifMess, @i{i}_messRise, @i{i}_messFall, @i{i}_ifRise, @i{i}_ifFalls, @i{i}_instRuseFallRate, " +
+                    $" @i{i}_panAmtDiff, @i{i}_panAmtRate, @i{i}_panAvgVolRate, @i{i}_panLastVolRate, @i{i}_panAvg5VolRate, " +
+                    $" @i{i}_instantBuyVol, @i{i}_instantSellVol, @i{i}_shortPower, @i{i}_open, @i{i}_instantJumpKong, " +
+                    $" @i{i}_yestPrize, @i{i}_lastVol2, @i{i}_avg5Vol, @i{i}_pDiff, CURRENT_DATE, @i{i}_panvolScore)");
+                foreach (KeyValuePair<string, string> kv in r)
+                    prm["@i" + i + "_" + kv.Key] = kv.Value;
+            }
+            sb.Append(" ON DUPLICATE KEY UPDATE AlertTitle=VALUES(AlertTitle), AlertType=VALUES(AlertType), OpenPriec=VALUES(OpenPriec), " +
+                " `CurrPrice`=VALUES(CurrPrice),`CurrVol`=VALUES(CurrVol), panVol=VALUES(panVol), panTrans=VALUES(panTrans), " +
+                " panVolTransRate=VALUES(panVolTransRate),diffPrice=VALUES(diffPrice), DiffRate=VALUES(DiffRate), " +
+                " recommandBy=VALUES(recommandBy), recommandPrice='0', priority=VALUES(priority), stockPriority=VALUES(stockPriority), " +
+                " `prePrice`=VALUES(prePrice),`preVol`=VALUES(preVol),`preTime`= VALUES(preTime), lastVolRate=VALUES(lastVolRate), " +
+                " avg5VolRate=VALUES(avg5VolRate), instantMass=VALUES(instantMass), messRise=VALUES(messRise), messFall=VALUES(messFall), " +
+                " instantRise=VALUES(instantRise), instantFall=VALUES(instantFall), panAmtDiff=VALUES(panAmtDiff), " +
+                " panAmtRate=VALUES(panAmtRate), panAvgVolRate=VALUES(panAvgVolRate), panLastVolRate=VALUES(panLastVolRate), " +
+                " panAvg5VolRate=VALUES(panAvg5VolRate), `instantBuyVol`=VALUES(instantBuyVol),`instantSellVol`=VALUES(instantSellVol), " +
+                " `instantIdx`=VALUES(instantIdx), instantJumpKong=VALUES(instantJumpKong), InstRiseFallRate=VALUES(InstRiseFallRate), panvolScore=VALUES(panvolScore) ");
+            CommonClass.execSQLNonQueryParams(sb.ToString(), prm, conn);
+        }
+        static long DbLong(object v) { return (v == null || v == DBNull.Value) ? 0 : Convert.ToInt64(v); }
+        static string DbStr(object v) { return (v == null || v == DBNull.Value) ? "" : v.ToString(); }
         public static List<DateTime> last10PanSlot;
         public static LineLib lineLib = null;
         public static string lastDate = null;
@@ -137,24 +179,30 @@ namespace TaskTrayApplication
                     lastTeacherEventID = 0;
                 else
                     lastTeacherEventID = Convert.ToInt32(maxIDObj);
-                string diggoConn = $"Data Source =208.109.25.83; Password =REDACTED; User ID =lineUser; Database =diggo; port = 3306; charset = utf8; convert zero datetime = True; SslMode = None; ";
+                string diggoConn = $"Data Source =208.109.25.83; Password ={FirstOhm.Secrets.Get("SST_DB_DIGGO_PWD")}; User ID =lineUser; Database =diggo; port = 3306; charset = utf8; convert zero datetime = True; SslMode = None; ";
                 sqlStr = $"delete FROM `igc8d_uj_teacher_event` where `event_msg`=''";
                 CommonClass.execSQLNonQuery(sqlStr, diggoConn);
-                sqlStr = $"SELECT `event_ID`,`lineUserID`,`groupID`,`eventTime`,`event_msg`,`translate`,`created` FROM `igc8d_uj_teacher_event` where `event_ID` > '{lastTeacherEventID}' ";
-                DataTable dt = CommonClass.getSQLDataTable(sqlStr, diggoConn);
+                sqlStr = $"SELECT `event_ID`,`lineUserID`,`groupID`,`eventTime`,`event_msg`,`translate`,`created` FROM `igc8d_uj_teacher_event` where `event_ID` > @lastEventId ";
+                DataTable dt = CommonClass.getSQLDataTableParams(sqlStr,
+                    new Dictionary<string, string>() { { "@lastEventId", lastTeacherEventID.ToString() } }, diggoConn);
                 if (dt.Rows.Count == 0)
                     return;
                 sqlStr = "INSERT ignore INTO `teacher_event`(`event_ID`, `lineUserID`, `groupID`, `eventTime`, `event_msg`) VALUES ";
                 DataRow dr;
+                Dictionary<string, string> insParams = new Dictionary<string, string>();
                 for (int i = 0; i < dt.Rows.Count; i++)
                 {
                     dr = dt.Rows[i];
-                    values.Append($"('{dr["event_ID"]}','{dr["lineUserID"]}','{dr["groupID"]}', " +
-                        $" '{dr["eventTime"]}', '{dr["event_msg"]}')");
+                    values.Append($"(@e{i}, @lu{i}, @g{i}, @t{i}, @m{i})");
+                    insParams["@e" + i] = dr["event_ID"].ToString();
+                    insParams["@lu" + i] = dr["lineUserID"].ToString();
+                    insParams["@g" + i] = dr["groupID"].ToString();
+                    insParams["@t" + i] = dr["eventTime"].ToString();
+                    insParams["@m" + i] = dr["event_msg"].ToString();
                     if (i < dt.Rows.Count - 1)
                         values.Append(", ");
                 }
-                CommonClass.execSQLNonQuery(sqlStr + values.ToString(), Constants.SSTConnString);
+                CommonClass.execSQLNonQueryParams(sqlStr + values.ToString(), insParams, Constants.SSTConnString);
                 sqlStr = "delete FROM `teacher_event` WHERE length(`event_msg`) < 10";
                 CommonClass.execSQLNonQuery(sqlStr, Constants.SSTConnString);
 
@@ -250,12 +298,12 @@ namespace TaskTrayApplication
                 //do nothing
             }
             sqlStr = "update `investbase` a " +
-                $" inner join stock60days b on a.`StockID`=b.StockID and b.`StockDate` = '{lastDate}' " +
+                " inner join stock60days b on a.`StockID`=b.StockID and b.`StockDate` = @lastDate " +
                 " set " +
                 " a.`avgAmt5D`=b.`MA5`, a.`avgVol5D`= b.MV5, " +
-                $" a.`currPrice` = b.EndPrice, a.`lastPrice` = b.EndPrice, " +
-                $" `lastVol` = b.Vol, a.`lastDate` = b.StockDate , " +
-                $" `onTimePrice` = b.EndPrice, " +
+                " a.`currPrice` = b.EndPrice, a.`lastPrice` = b.EndPrice, " +
+                " `lastVol` = b.Vol, a.`lastDate` = b.StockDate , " +
+                " `onTimePrice` = b.EndPrice, " +
                 " a.`onTimeVol`=0, `momentAVDVol`=0, a.`lastVolRate`=0, a.`avg5VolRate`=0, " +
                 " `dailyNoPriceCnt`=0, a.`instantMass`=0, a.`instantRise`=0, " +
                 " a.`instantFall`=0, a.`messRise`=0, a.`messFall`=0, " +
@@ -263,7 +311,7 @@ namespace TaskTrayApplication
                 " a.panVol10Cnt=0, a.panVol5Dict=null, a.panVol5CntPos=0,  " +
                 " a.panVol5CntNeg=0, a.`panVol5QuanPos`=0, a.`panVol5QuanNeg`=0, " +
                 " a.`panVol5QuanDiff`=0, a.panVol50CntPos=0, a.panVol50CntNeg=0";
-            CommonClass.execSQLNonQuery(sqlStr);
+            CommonClass.execSQLNonQueryParams(sqlStr, new Dictionary<string, string>() { { "@lastDate", lastDate } });
             //try
             //{
             //    sqlStr = $"SELECT Max(`StockDate`) FROM `weekall` where `StockDate` < '{DateTime.Now.ToString("yyyy-MM-dd")}' ";
@@ -296,8 +344,12 @@ namespace TaskTrayApplication
         {
             string sqlStr = null;
             DateTime currentTime = DateTime.Now;
+            //B1: 本方法內固定使用同一連線（避免並行 tick 讀到 sstConnStr 被切換）
             if (string.IsNullOrEmpty(dbConnection))
+            {
                 sst.sstConnStr = Constants.SSTConnString;
+                dbConnection = sst.sstConnStr;
+            }
             else
                 sst.sstConnStr = dbConnection;
 
@@ -305,15 +357,17 @@ namespace TaskTrayApplication
                 return;
             if (lastDate == null)
             {
-                sqlStr = $"SELECT Max(`StockDate`) FROM `weekall` where `StockDate` < '{DateTime.Now.ToString("yyyy-MM-dd")}' ";
-                lastDate = Convert.ToDateTime(CommonClass.getSQLScalar(sqlStr, sst.sstConnStr)).ToString("yyyy-MM-dd");
+                sqlStr = "SELECT Max(`StockDate`) FROM `weekall` where `StockDate` < @today ";
+                lastDate = Convert.ToDateTime(CommonClass.getSQLScalarParams(sqlStr,
+                    new Dictionary<string, string>() { { "@today", DateTime.Now.ToString("yyyy-MM-dd") } }, dbConnection)).ToString("yyyy-MM-dd");
             }
 
             //每天早上 8：30 
             if (currHour == 8 && currMin == 45)
             {
-                sqlStr = $"SELECT Max(`StockDate`) FROM `weekall` where `StockDate` < '{DateTime.Now.ToString("yyyy-MM-dd")}' ";
-                lastDate = Convert.ToDateTime(CommonClass.getSQLScalar(sqlStr, sst.sstConnStr)).ToString("yyyy-MM-dd");
+                sqlStr = "SELECT Max(`StockDate`) FROM `weekall` where `StockDate` < @today ";
+                lastDate = Convert.ToDateTime(CommonClass.getSQLScalarParams(sqlStr,
+                    new Dictionary<string, string>() { { "@today", DateTime.Now.ToString("yyyy-MM-dd") } }, dbConnection)).ToString("yyyy-MM-dd");
 
                 sst.genRecommand(DateTime.Now.ToString("yyyy-MM-dd"));
                 sst._api = null;
@@ -349,8 +403,8 @@ namespace TaskTrayApplication
                 && DateTime.Now.TimeOfDay >= TimeSpan.Parse("9:01:00")
                 && DateTime.Now.TimeOfDay <= TimeSpan.Parse("15:05:00"))
             {
-                stockAlertLog(parseType, sst.sstConnStr);
-                CommonClass.wait(15);
+                stockAlertLog(parseType, dbConnection);
+                //O3: 移除固定 wait(15)（每輪省 15s；原意為等資料聚合，但 blocking 整條管線）
                 DataTable dt;
                 if (currentTime.TimeOfDay >= new TimeSpan(8, 50, 0)
                     && currentTime.TimeOfDay <= new TimeSpan(13, 30, 0))
@@ -372,7 +426,8 @@ namespace TaskTrayApplication
                 if (dt.Rows.Count > 0)
                 {
                     List<string> logid_List = CommonClass.dtToList(dt, 0);
-                    sqlStr = $"delete from alertlog where Log_ID in ('{string.Join("','", logid_List)}')";
+                    //Log_ID 為 DB 產出之數值，轉 int 後以逗號串接（安全性防注）
+                    sqlStr = "delete from alertlog where Log_ID in (" + string.Join(",", logid_List.Select(x => Convert.ToInt32(x).ToString())) + ")";
                     CommonClass.execSQLNonQuery(sqlStr);
                 }
             }
@@ -904,21 +959,35 @@ namespace TaskTrayApplication
             string sqlStr = null;
             DataTable dt = null;
             string whereStr = "";
+            List<string> whereConds = new List<string>();
             //過了下午一點半, 就改成 3 分鐘一次， 把當天的剩下的 quata 都給 興櫃
             //parseType = DateTime.Now.TimeOfDay >= TimeSpan.Parse("13:31:00")?1: parseType;
 
             if (DateTime.Now.TimeOfDay >= TimeSpan.Parse("13:31:00"))
-                whereStr = " where a.StockType='興櫃'";
+                whereConds.Add("a.StockType='興櫃'");
+            //O4（選擇性瘦身，預設不開、行為不變）：Property 設 sstAlertOnlyTrading=1 時，只抓「昨量/今量/昨價任一 > 0」的股票
+            if (Constants.getProperty("sstAlertOnlyTrading") == "1")
+                whereConds.Add("(a.onTimeVol > 0 or b.Vol > 0 or b.StockPrice > 0)");
+            if (whereConds.Count > 0)
+                whereStr = " where " + string.Join(" and ", whereConds);
 
             sqlStr = $"SELECT a.*, b.StockType , '' stype, '' recommandBy , b.OpenPriec lastOpenPriec, b.`HPrice` D1HPrice, " +
                 $" b.`LPrice` D1LPrice, c.`HPrice` D2HPrice, c.`LPrice` D2LPrice, " +
                 $" Round(b.vol/90) avgPanVol, " +
                 $" b.`StockPrice`, b.Vol, b.lastVol, b.avgVol5D tr_avgVol5D, b.`avgAmt5D` tr_avgAmt5D, a.panVol5Cnt, " +
-                $" a.panVol10Cnt, a.panVol5Dict " +
+                $" a.panVol10Cnt, a.panVol5Dict, sd.EndPrice sdEndPrice, " +
+                $" (IFNULL(pd.paRatePosCnt,0)+IFNULL(pd.pLVRatePosCnt,0)+IFNULL(pd.p5VRatePosCnt,0)+IFNULL(pd.pApRatePosCnt,0)) " +
+                $" - (IFNULL(pd.paRateNegCnt,0)+IFNULL(pd.pLVRateNegCnt,0)+IFNULL(pd.p5VRateNegCnt,0)+IFNULL(pd.pApRateNegCnt,0)) pDiff, " +
+                $" ps.panvolScore " +
                 $" FROM investbase a " +
                 $" inner Join tradedata b on a.`StockID`= b.StockID and b.`TransDate` = a.lastDate " +
                 $" inner Join tradedata c on c.`StockID`= b.StockID and c.`TransDate` = b.`lastDate` " +
+                $" left Join stock60days sd on sd.`StockID`= a.StockID and sd.`StockDate` = a.lastDate " +
+                $" left Join alertlist pd on pd.`StockID`= a.StockID and pd.`alertDate` = CURRENT_DATE " +
+                $" left Join (SELECT StockID, Round(sum((`panAvgVolRate`/10) * IF(panAmtDiff>0,1,if(panAmtDiff<0,-1,0)))) panvolScore " +
+                $" FROM alertlog WHERE alertDate = CURRENT_DATE GROUP BY StockID) ps on ps.StockID = a.StockID " +
                 //(parseType==1?"":$" inner Join alertlist d on d.`StockID`= a.StockID and d.`alertDate` = a.recDate ") +
+                //O1(a) 備註：sdEndPrice/pDiff/panvolScore 由 alertSource 一次 join，取代 processAlert 的 per-stock 查詢
                 whereStr;
 
             dt = CommonClass.getSQLDataTable(sqlStr, sstConnStr);
@@ -941,9 +1010,9 @@ namespace TaskTrayApplication
                     var _accounts = _api.Login(apiKey, secretKey);
                     //CommonClass.wait(1);
                     //_api.ca_activate(
-                    //    "D:/ScottWork/SSTService/mecert/S273/TTW558/Sinopac.pfx",
-                    //    "REDACTED",
-                    //    "REDACTED"
+                    //    "***/SSTService/mecert/**/Sinopac.pfx",
+                    //    "***",
+                    //    "***"
                     //);
                     CommonApp.logoutTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
                     Console.WriteLine(_accounts);
@@ -982,6 +1051,16 @@ namespace TaskTrayApplication
                             msgObj.ts = (Convert.ToDouble(item.Value) / 1000000000).ToString();
                             msgObj.tk0 = CommonClass.UnixTimeStampToDateTime(Convert.ToDouble(item.Value) / 1000000000).ToString("yyyy/MM/dd HH:mm:ss");
                             msgObj.d = CommonClass.UnixTimeStampToDateTime(Convert.ToDouble(item.Value) / 1000000000).ToString("yyyyMMdd");
+                            break;
+                        case "datetime": //B1: server JSON 以 datetime 取代舊 SDK 的 ts
+                            DateTime dtT = Convert.ToDateTime(item.Value);
+                            msgObj.tk0 = dtT.ToString("yyyy/MM/dd HH:mm:ss");
+                            msgObj.d = dtT.ToString("yyyyMMdd");
+                            msgObj.t = dtT.ToString("HH:mm:ss");
+                            msgObj.ts = dtT.Ticks.ToString();
+                            break;
+                        case "yesterday_volume": //B1: server JSON 昨量 -> w
+                            msgObj.w = Convert.ToInt32(item.Value).ToString();
                             break;
                         case "code":
                             msgObj.c = item.Value.ToString();
@@ -1059,160 +1138,86 @@ namespace TaskTrayApplication
         //parseType:1 全部， 2:僅 Parse 當天 recommand 的股票
         public static void shioajiStockAlert(DataTable dataSource, string lastDate, int parseType = 1)
         {
-            var contracts = new List<Sinopac.Shioaji.IContract>();
-            var contractsIdx = new List<Index>();
-            if (_api == null)
+            //B1: 全量快照改走官方 shioaji server HTTP（localhost 免認證）；不再需要 .NET SDK login / contract 解析
+            if (!ShioajiHttpClient.IsServerUp())
             {
-                if (!shioajiLogin())
-                {
-                    EventLog.WriteEntry(Constants.source, "Login to Shioaji Server fail", EventLogEntryType.Error);
-                    return;
-                }
+                EventLog.WriteEntry(Constants.source, "shioaji server 未啟動（HTTP 行情不可用），本輪跳過", EventLogEntryType.Error);
+                return;
             }
+            List<KeyValuePair<string, string>> batch = new List<KeyValuePair<string, string>>();
             //##############################
             //上市
             List<string> tempStockList = CommonClass.dtToListWithCondition(dataSource, "StockType='上市' or StockType='tse'", "StockID");
-            //List<string> tempStockList = CommonClass.dtToListWithCondition(dataSource, null, "StockID");
-            if(tempStockList!=null && tempStockList.Count > 0)
+            if (tempStockList != null && tempStockList.Count > 0)
             {
                 foreach (string stockID in tempStockList)
                     if (stockID != "t00" && stockID != "o00")
-                    {
-                        try
-                        {
-                            contracts.Add(_api.Contracts.Stocks["TSE"][stockID]);
-                        }
-                        catch (Exception ex)
-                        {
-                            try
-                            {
-                                contracts.Add(_api.Contracts.Stocks["OTC"][stockID]);
-                            }
-                            catch (Exception ex1)
-                            {
-                                string mailBody = $"時間: {DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss")}{System.Environment.NewLine}" +
-                                     $"shioajiStockAlert()  Exception " + Environment.NewLine +
-                                     $"error Msg : {ex.Message}" + Environment.NewLine +
-                                     $"stackTrace : {ex.StackTrace}";
-                                CommonClass.sendmailEazy(mailBody, "3", "scott.tseng@firstohm.com.tw", $"syncTeacherEvent() Exception: {ex.Message}");
-                            }
-                        }
-                    }
-                for(int i = 0; i < 3; i++)
-                {   //如果無資料， 則等 10 秒后, 再來一次， 共 3 次
-                    if (processContract(contracts, dataSource, parseType = 1, i))
-                       break;
-                    CommonClass.wait(10);
+                        batch.Add(new KeyValuePair<string, string>("TSE", stockID));
+                for (int i = 0; i < 3; i++)
+                {   //如果無資料， 則等 5 秒后, 再來一次， 共 3 次（O3）
+                    if (processContract(batch, dataSource, parseType = 1, i))
+                        break;
+                    CommonClass.wait(5);
                 }
             }
             //#################################################################
             //上櫃
-            if (contracts!=null)
-                contracts.Clear();
-            tempStockList = CommonClass.dtToListWithCondition(dataSource, 
-                "StockType='上櫃' or StockType='oct' ", "StockID");
-            if(tempStockList !=null && tempStockList.Count > 0)
+            batch.Clear();
+            tempStockList = CommonClass.dtToListWithCondition(dataSource, "StockType='上櫃' or StockType='oct' ", "StockID");
+            if (tempStockList != null && tempStockList.Count > 0)
             {
                 foreach (string stockID in tempStockList)
                     if (stockID != "t00" && stockID != "o00")
-                    {
-                        try
-                        {
-                            contracts.Add(_api.Contracts.Stocks["OTC"][stockID]);
-                        }
-                        catch (Exception ex)
-                        {
-                            try
-                            {
-                                contracts.Add(_api.Contracts.Stocks["TSE"][stockID]);
-                            }
-                            catch (Exception ex1)
-                            {
-
-                            }
-                        }
-                    }
+                        batch.Add(new KeyValuePair<string, string>("OTC", stockID));
+                for (int i = 0; i < 3; i++)
+                {
+                    if (processContract(batch, dataSource, parseType = 1, i))
+                        break;
+                    CommonClass.wait(5);
+                }
             }
             //###################################################
             //興櫃
+            batch.Clear();
             tempStockList = CommonClass.dtToListWithCondition(dataSource, "StockType='興櫃' or StockType='oes'", "StockID");
             if (tempStockList != null && tempStockList.Count > 0)
             {
                 foreach (string stockID in tempStockList)
                     if (stockID != "t00" && stockID != "o00")
-                    {
-                        try
-                        {
-                            contracts.Add(_api.Contracts.Stocks["OES"][stockID]);
-                        }
-                        catch (Exception ex)
-                        {
-                        }
-                    }
-                ////興櫃 + 上櫃
+                        batch.Add(new KeyValuePair<string, string>("OES", stockID));
                 for (int i = 0; i < 3; i++)
-                {   //如果無資料， 則等 10 秒后, 再來一次， 共 3 次
-                    if (processContract(contracts, dataSource, parseType = 1, i))
+                {   //如果無資料， 則等 5 秒后, 再來一次， 共 3 次（O3）
+                    if (processContract(batch, dataSource, parseType = 1, i))
                         break;
-                    CommonClass.wait(10);
+                    CommonClass.wait(5);
                 }
             }
         }
 
-        public static bool processContract(List<Sinopac.Shioaji.IContract> contracts, DataTable dataSource, int parseType = 1, int times= 0)
+        public static bool processContract(List<KeyValuePair<string, string>> batch, DataTable dataSource, int parseType = 1, int times= 0)
         {
             FormIn reqObj = new FormIn();
             List<MsgArray> priceResults = new List<MsgArray>();
             List<string> tseRepeatList = new List<string>();
             List<string> otcRepeatList = new List<string>();
-            List<dynamic> snapshot = _api.Snapshots(contracts);
-            //List<dynamic> snapshotIdx = _api.Snapshots(contractsIdx);
+            //B1: 快照改走官方 HTTP（分批 ≤200/server 端）
+            List<Dictionary<string, object>> snapshot = ShioajiHttpClient.GetSnapshots(batch);
             string sendmailbody = null;
-            if (snapshot.Count <= 0)
+            if (snapshot == null || snapshot.Count <= 0)
             {
-                var usageStatus = _api.Usage();
                 Console.WriteLine();
-                CommonClass.smtpSendMail($"第 {times} 次 snapshot.Count 回應 {snapshot.Count} 筆資料， {usageStatus}",
+                CommonClass.smtpSendMail($"第 {times} 次 snapshot 回應 0 筆（shioaji server: {ShioajiHttpClient.ServerInfo()}）",
                 new Dictionary<string, string>() { { "曾建明", "scott.tseng@firstohm.com.tw" } },
                 true, "shioaji snapshot 無回應資料");
                 return false;
             }
 
-            var jsonSerializer = new System.Web.Script.Serialization.JavaScriptSerializer();
-            string snapshotJson = jsonSerializer.Serialize(snapshot);
-            if (snapshot == null || snapshot.Count == 0)
-            {
-                TimeSpan timeSpent = DateTime.Now - shioajiRunoutTime;
+            //（原 .NET SDK 的 Usage()/限額節流 mail 於 HTTP 路徑由 server 側額度控管，此處簡化為一次失敗 mail）
 
-                // Display the result in minutes
-                int minutesSpent = (int)timeSpent.TotalMinutes;
-                if (minutesSpent >= 60)
-                {
-                    shioajiRunoutTime = DateTime.Now;
-                    sendmailbody = $"第 {times} 次  {shioajiRunoutTime.ToString("yyyy-MM-dd HH:mm")}    , snapshot==null, 應該是 shioaji 限額用完了 ";
-                    CommonClass.smtpSendMail(sendmailbody,
-                                new Dictionary<string, string>() { { "曾建明", "scott.tseng@firstohm.com.tw" } },
-                                true, "shioaji 限額用完");
-                    return false;
-                }
-            }
-
-            List<Dictionary<string, object>> resultLists =
-                    JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(snapshotJson);
-            foreach (Dictionary<string, object> jsonDict in resultLists)
+            foreach (Dictionary<string, object> jsonDict in snapshot)
                 priceResults.Add(stockDictToMsgArray(jsonDict, dataSource));
 
             processAlert(dataSource, lastDate, priceResults, tseRepeatList, otcRepeatList, parseType);
-            //if (tseRepeatList.Count + otcRepeatList.Count > 0)
-            //    processAlert(dataSource, lastDate, priceResults, tseRepeatList, otcRepeatList, parseType);
-            //else
-            //{
-            //    sendmailbody = $"{shioajiRunoutTime.ToString("yyyy-MM-dd HH:mm")} , tseRepeatList.Count + otcRepeatList.Count = {tseRepeatList.Count + otcRepeatList.Count} ";
-            //    CommonClass.smtpSendMail(sendmailbody,
-            //                new Dictionary<string, string>() { { "曾建明", "scott.tseng@firstohm.com.tw" } },
-            //                true, "shioaji 無 Snapshot 資料");
-            //    return false;
-            //}
             return true;
         }
 
@@ -1307,24 +1312,27 @@ namespace TaskTrayApplication
                 //MessageBox.Show("來源資料不足");
                 return retStr;
             }
-            string sqlStr = "UPDATE `stockconfig` SET `CContent`= ";
+            string sqlStr = "UPDATE `stockconfig` SET `CContent`= @val " +
+            $"WHERE `CName`= @name ";
+            string cfgName = null;
             switch (dayNo)
             {
                 case 0:
                     //最新資料
                     retStr = dt.Rows[0][0].ToString();
-                    sqlStr += $" '{retStr}' WHERE `CName`='currDate' ";
+                    cfgName = "currDate";
                     break;
                 case 1:
                     retStr = dt.Rows[1][0].ToString();
-                    sqlStr += $" '{retStr}' WHERE `CName`='yestDate' ";
+                    cfgName = "yestDate";
                     break;
                 default:
                     retStr = dt.Rows[dayNo][0].ToString();
-                    sqlStr += $" '{retStr}' WHERE `CName`='c{dayNo + 1}Date' ";
+                    cfgName = "c" + (dayNo + 1) + "Date";
                     break;
             }
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+            CommonClass.execSQLNonQueryParams(sqlStr,
+                new Dictionary<string, string>() { { "@val", retStr }, { "@name", cfgName } }, sstConnStr);
             return retStr;
         }
 
@@ -1358,11 +1366,12 @@ namespace TaskTrayApplication
             Dictionary<string, string> stockConfigDict = null;
             if (skipTradedata)
             {
-                sqlStr = $"insert ignore into `stock60days` (`StockID`,`StockDate`,`lastDate`,`OpenPriec`," +
-                $" `EndPrice`,`HPrice`,`LPrice`,`Vol`) " +
-                $" select `StockID`,`StockDate`,`lastDate`,`OpenPriec`, " +
-                $" `EndPrice`,`HPrice`,`LPrice`,`Vol` from weekall where StockDate='{dataDate}'";
-                CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+                sqlStr = "insert ignore into `stock60days` (`StockID`,`StockDate`,`lastDate`,`OpenPriec`," +
+                " `EndPrice`,`HPrice`,`LPrice`,`Vol`) " +
+                " select `StockID`,`StockDate`,`lastDate`,`OpenPriec`, " +
+                " `EndPrice`,`HPrice`,`LPrice`,`Vol` from weekall where StockDate=@dataDate";
+                CommonClass.execSQLNonQueryParams(sqlStr,
+                    new Dictionary<string, string>() { { "@dataDate", dataDate } }, sstConnStr);
             }
 
             sqlStr = "SELECT distinct Date_format(`StockDate`, '%Y/%m/%d') StockDate  " +
@@ -1388,29 +1397,32 @@ namespace TaskTrayApplication
             stockConfigDict = CommonClass.dtToDictionary(tempDt, "CName", "CContent");
 
 
-            sqlStr = $"update stock60days a " +
-            $" inner join(SELECT StockID, Max(`EndPrice`) MaxPrice, Max(`Vol`) MaxVol from `stock60days` " +
-            $" where `StockDate` >= '{stockConfigDict["c60Date"]}' and `StockDate` <= '{dataDate}' " +
-            $" group by `StockID`) b on a.StockID = b.StockID " +
-            $" set a.MaxPrice3M = b.MaxPrice, a.MaxVol3M = b.MaxVol " +
-            $" where a.`StockDate`= '{dataDate}'";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+            sqlStr = "update stock60days a " +
+            " inner join(SELECT StockID, Max(`EndPrice`) MaxPrice, Max(`Vol`) MaxVol from `stock60days` " +
+            " where `StockDate` >= @c60Date and `StockDate` <= @dataDate " +
+            " group by `StockID`) b on a.StockID = b.StockID " +
+            " set a.MaxPrice3M = b.MaxPrice, a.MaxVol3M = b.MaxVol " +
+            " where a.`StockDate`= @dataDate";
+            CommonClass.execSQLNonQueryParams(sqlStr,
+                new Dictionary<string, string>() { { "@c60Date", stockConfigDict["c60Date"] }, { "@dataDate", dataDate } }, sstConnStr);
 
             //計算所有股票的 季波動率
-            sqlStr = $"update stock60days a " +
-                $" inner join " +
-                $"(select `StockID`, IF(Min(`EndPrice`)=0, 0, Round((max(`EndPrice`)-Min(`EndPrice`))/Min(`EndPrice`) * 100)) stable3M " +
-                $" FROM `stock60days` x " +
-                $" Left join stockconfig y on y.CName='c60Date' " +
-                $" where x.`StockDate` >= y.CContent group by `StockID`) b " +
-                $" set a.stable3M = b.stable3M where a.StockDate = '{dataDate}' and a.StockID = b.StockID ";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+            sqlStr = "update stock60days a " +
+                " inner join " +
+                "(select `StockID`, IF(Min(`EndPrice`)=0, 0, Round((max(`EndPrice`)-Min(`EndPrice`))/Min(`EndPrice`) * 100)) stable3M " +
+                " FROM `stock60days` x " +
+                " Left join stockconfig y on y.CName='c60Date' " +
+                " where x.`StockDate` >= y.CContent group by `StockID`) b " +
+                " set a.stable3M = b.stable3M where a.StockDate = @dataDate2 and a.StockID = b.StockID ";
+            CommonClass.execSQLNonQueryParams(sqlStr,
+                new Dictionary<string, string>() { { "@dataDate2", dataDate } }, sstConnStr);
 
-            sqlStr = $"update stock60days as a " +
-                $" inner join stock60days b on a.StockID=b.StockID and a.lastDate=b.StockDate " +
-                $" set a.jumpKong = jumpKong(a.OpenPriec, a.EndPrice, b.OpenPriec, b.EndPrice) " +
-                $" where a.StockDate = '{dataDate}' ";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+            sqlStr = "update stock60days as a " +
+                " inner join stock60days b on a.StockID=b.StockID and a.lastDate=b.StockDate " +
+                " set a.jumpKong = jumpKong(a.OpenPriec, a.EndPrice, b.OpenPriec, b.EndPrice) " +
+                " where a.StockDate = @dataDate3 ";
+            CommonClass.execSQLNonQueryParams(sqlStr,
+                new Dictionary<string, string>() { { "@dataDate3", dataDate } }, sstConnStr);
             return rtnCnt;
         }
 
@@ -1441,9 +1453,10 @@ namespace TaskTrayApplication
 
             ma5 = ma10 = ma14 = ma20 = ma35 = ma60 = mv5 = mv10 = mv14 = mv20 = mv35 = mv60 = 0;
             sqlStr = "SELECT `EndPrice`, `Vol` " +
-               $" FROM stock60days where `StockID`='{stockid}' and StockDate <= '{dataDate}' " +
-               $" ORDER BY `StockDate` DESC";
-            tempDt = CommonClass.getSQLDataTable(sqlStr, sstConnStr);
+               " FROM stock60days where `StockID`=@stockid and StockDate <= @dataDate " +
+               " ORDER BY `StockDate` DESC";
+            tempDt = CommonClass.getSQLDataTableParams(sqlStr,
+                new Dictionary<string, string>() { { "@stockid", stockid }, { "@dataDate", dataDate } }, sstConnStr);
             resultData = calcMAMV(tempDt, 5);
             if (resultData != null)
             {
@@ -1480,33 +1493,47 @@ namespace TaskTrayApplication
                 ma60 = resultData[0];
                 mv60 = resultData[1];
             }
-            sqlStr = $"update `stock60days` set `MA5`={ma5},`MA10`={ma10}," +
-                     $" `MA14`={ma14},`MA20`={ma20},`MA35`={ma35},`MA60`={ma60}, " +
-                     $" `MV5`={mv5},`MV10`={mv10}," +
-                     $" `MV14`={mv14},`MV14`={mv20},`MV35`={mv35},`MV60`={mv60} " +
-                     $" where `StockID` = '{stockid}' and `StockDate` = '{dataDate}'";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
-            sqlStr = $"SELECT * FROM `stockconfig` ";
+            sqlStr = "update `stock60days` set `MA5`=@ma5,`MA10`=@ma10," +
+                     " `MA14`=@ma14,`MA20`=@ma20,`MA35`=@ma35,`MA60`=@ma60, " +
+                     " `MV5`=@mv5,`MV10`=@mv10," +
+                     " `MV14`=@mv14,`MV20`=@mv20,`MV35`=@mv35,`MV60`=@mv60 " +
+                     " where `StockID` = @stockid2 and `StockDate` = @dataDate2";
+            CommonClass.execSQLNonQueryParams(sqlStr, new Dictionary<string, string>()
+            {
+                {"@ma5", ma5.ToString()},{"@ma10", ma10.ToString()},{"@ma14", ma14.ToString()},{"@ma20", ma20.ToString()},
+                {"@ma35", ma35.ToString()},{"@ma60", ma60.ToString()},
+                {"@mv5", mv5.ToString()},{"@mv10", mv10.ToString()},{"@mv14", mv14.ToString()},{"@mv20", mv20.ToString()},
+                {"@mv35", mv35.ToString()},{"@mv60", mv60.ToString()},
+                {"@stockid2", stockid},{"@dataDate2", dataDate}
+            }, sstConnStr);
+            //註：原程式 `MV14`={mv20} 為欄位錯置 bug（MV20 從未寫入），本次參數化時一併修正
+            sqlStr = "SELECT * FROM `stockconfig` ";
             tempDt = CommonClass.getSQLDataTable(sqlStr, sstConnStr);
             Dictionary<string, string> stockConfigDict = CommonClass.dtToDictionary(tempDt, "CName", "CContent");
 
 
-            sqlStr = $"insert IGNORE into stockdeduct " +
-                $" (`StockID`,`StockDate`, " +
-                $" `MA5`,`MV5`,`MA10`,`MV10`,`MA14`,`MV14`, " +
-                $" `MA20`,`MV20`,`MA35`,`MV35`,`MA60`,`MV60` ) " +
-                $" select '{stockid}', '{dataDate}' , a.`EndPrice` DA5, a.Vol DV5, " +
-                $" b.`EndPrice` DA10, b.Vol DV10, c.`EndPrice` DA14, c.Vol DV14, " +
-                $" d.`EndPrice` DA20, d.`Vol` DV20, e.`EndPrice` DA35, e.Vol DV35, " +
-                $"f.`EndPrice` DA60, f.Vol DV60 " +
-                $" from stock60days a " +
-                $" left join stock60days b on a.`StockID`=b.StockID and b.StockDate='{stockConfigDict["c10Date"]}' " +
-                $" left join stock60days c on a.`StockID`=c.StockID and c.StockDate='{stockConfigDict["c14Date"]}' " +
-                $" left join stock60days d on a.`StockID`=d.StockID and d.StockDate='{stockConfigDict["c20Date"]}' " +
-                $" left join stock60days e on a.`StockID`=e.StockID and e.StockDate='{stockConfigDict["c35Date"]}' " +
-                $" left join stock60days f on a.`StockID`=f.StockID and f.StockDate='{stockConfigDict["c60Date"]}' " +
-                $" where a.StockDate='{stockConfigDict["c5Date"]}' and a.StockID='{stockid}' ";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+            sqlStr = "insert IGNORE into stockdeduct " +
+                " (`StockID`,`StockDate`, " +
+                " `MA5`,`MV5`,`MA10`,`MV10`,`MA14`,`MV14`, " +
+                " `MA20`,`MV20`,`MA35`,`MV35`,`MA60`,`MV60` ) " +
+                " select @stockid3, @dataDate3 , a.`EndPrice` DA5, a.Vol DV5, " +
+                " b.`EndPrice` DA10, b.Vol DV10, c.`EndPrice` DA14, c.Vol DV14, " +
+                " d.`EndPrice` DA20, d.`Vol` DV20, e.`EndPrice` DA35, e.Vol DV35, " +
+                "f.`EndPrice` DA60, f.Vol DV60 " +
+                " from stock60days a " +
+                " left join stock60days b on a.`StockID`=b.StockID and b.StockDate=@c10Date " +
+                " left join stock60days c on a.`StockID`=c.StockID and c.StockDate=@c14Date " +
+                " left join stock60days d on a.`StockID`=d.StockID and d.StockDate=@c20Date " +
+                " left join stock60days e on a.`StockID`=e.StockID and e.StockDate=@c35Date " +
+                " left join stock60days f on a.`StockID`=f.StockID and f.StockDate=@c60Date " +
+                " where a.StockDate=@c5Date and a.StockID=@stockid3 ";
+            CommonClass.execSQLNonQueryParams(sqlStr, new Dictionary<string, string>()
+            {
+                {"@stockid3", stockid},{"@dataDate3", dataDate},
+                {"@c5Date", stockConfigDict["c5Date"]},{"@c10Date", stockConfigDict["c10Date"]},
+                {"@c14Date", stockConfigDict["c14Date"]},{"@c20Date", stockConfigDict["c20Date"]},
+                {"@c35Date", stockConfigDict["c35Date"]},{"@c60Date", stockConfigDict["c60Date"]}
+            }, sstConnStr);
         }
 
         public static void 林則平(string dataDate)
@@ -1514,32 +1541,35 @@ namespace TaskTrayApplication
             DataTable tempDt = null;
             DataTable calcDt = null;
 
-            String sqlStr = $"update `stock60days` a " +
-                $" inner join ( SELECT `StockID`, 1-(Min(`EndPrice`)/Max(`EndPrice`)) SRate " +
-                                $" FROM `stock60days` " +
-                                $" WHERE `StockDate` >= SUBDATE('{dataDate}', INTERVAL 6 Month)) b " +
-                                $" on a.`StockID`=b.`StockID` and a.`StockDate`='{dataDate}' set a.stable=SRate*100 ";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+            String sqlStr = "update `stock60days` a " +
+                " inner join ( SELECT `StockID`, 1-(Min(`EndPrice`)/Max(`EndPrice`)) SRate " +
+                                " FROM `stock60days` " +
+                                " WHERE `StockDate` >= SUBDATE(@dataDate, INTERVAL 6 Month)) b " +
+                                " on a.`StockID`=b.`StockID` and a.`StockDate`=@dataDate2 set a.stable=SRate*100 ";
+            CommonClass.execSQLNonQueryParams(sqlStr,
+                new Dictionary<string, string>() { { "@dataDate", dataDate }, { "@dataDate2", dataDate } }, sstConnStr);
 
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
-            sqlStr = $"SELECT distinct StockID  FROM `stock60days` " +
-                $" where `StockDate`='{dataDate}'  order by StockID ";
-            DataTable dt = CommonClass.getSQLDataTable(sqlStr, sstConnStr);
+            sqlStr = "SELECT distinct StockID  FROM `stock60days` " +
+                " where `StockDate`=@dataDate3  order by StockID ";
+            DataTable dt = CommonClass.getSQLDataTableParams(sqlStr,
+                new Dictionary<string, string>() { { "@dataDate3", dataDate } }, sstConnStr);
             foreach (DataRow dr in dt.Rows)
             {
-                sqlStr = $"SELECT `StockDate` " +
-                     $" FROM `stock60days` " +
-                     $" WHERE `StockID`='{dr["StockID"]}' and `StockDate` <= '{dataDate}' " +
-                     $"order by `StockDate` desc limit 19,1";
-                var tempVar = CommonClass.getSQLScalar(sqlStr, sstConnStr);
+                sqlStr = "SELECT `StockDate` " +
+                     " FROM `stock60days` " +
+                     " WHERE `StockID`=@stockid and `StockDate` <= @dataDate4 " +
+                     "order by `StockDate` desc limit 19,1";
+                var tempVar = CommonClass.getSQLScalarParams(sqlStr,
+                    new Dictionary<string, string>() { { "@stockid", dr["StockID"].ToString() }, { "@dataDate4", dataDate } }, sstConnStr);
                 string tempDate = null;
                 if (tempVar != null && tempVar != DBNull.Value)
                 {
                     tempDate = Convert.ToDateTime(tempVar).ToString("yyyy/MM/dd");
-                    sqlStr = $"SELECT `EndPrice`, Date_Format(`StockDate`, '%y%m%d') dataDate " +
-                     $" FROM `stock60days` where `StockDate` >= '{tempDate}' and stockid = '{dr["StockID"]}' " +
-                     $" order by EndPrice desc";
-                    tempDt = CommonClass.getSQLDataTable(sqlStr, sstConnStr);
+                    sqlStr = "SELECT `EndPrice`, Date_Format(`StockDate`, '%y%m%d') dataDate " +
+                     " FROM `stock60days` where `StockDate` >= @tempDate and stockid = @stockid2 " +
+                     " order by EndPrice desc";
+                    tempDt = CommonClass.getSQLDataTableParams(sqlStr,
+                        new Dictionary<string, string>() { { "@tempDate", tempDate }, { "@stockid2", dr["StockID"].ToString() } }, sstConnStr);
                     double RCI = 0;
                     if (tempDt != null && tempDt.Rows.Count > 4)
                     {
@@ -1555,9 +1585,10 @@ namespace TaskTrayApplication
                             rciSum += (int)Math.Pow((dateIdx - i), 2);
                         }
                         RCI = Math.Round((double)(1 - ((6 * rciSum) / priceList.Count / (Math.Pow(priceList.Count, 2) - 1))) * 100, 0);
-                        sqlStr = $"update  `stock60days` set `droprate`='{RCI}' " +
-                            $"where `StockID`='{dr["StockID"]}' and `StockDate`= '{dataDate}' ";
-                        CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+                        sqlStr = "update  `stock60days` set `droprate`=@rci " +
+                            "where `StockID`=@stockid3 and `StockDate`= @dataDate5 ";
+                        CommonClass.execSQLNonQueryParams(sqlStr,
+                            new Dictionary<string, string>() { { "@rci", RCI.ToString() }, { "@stockid3", dr["StockID"].ToString() }, { "@dataDate5", dataDate } }, sstConnStr);
                     }
                 }
             }
@@ -1568,15 +1599,16 @@ namespace TaskTrayApplication
             DataTable tempDt = null;
             DataTable calcDt = null;
 
-            String sqlStr = $"update `stock60days` a " +
-            $" inner join ( SELECT `StockID`, Min(`SMonth`) sMonth, Min(`MinPrice`) MinPrice, " +
-                    $" Max(`MaxPrice`) MaxPrice, 1-(Min(`MinPrice`)/Max(`MaxPrice`)) SRate " +
-                    $" FROM `monthmax` " +
-                    $" WHERE monthDiff(`SMonth`, Date_Format('{dataDate}', '%y/%m')) <= 6 ) b " +
-                    $" on a.`StockID`=b.`StockID` and a.`StockDate`='{dataDate}' " +
-            $" set a.stable=SRate*100 " +
-            $" where a.StockID='{stockID}'";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+            String sqlStr = "update `stock60days` a " +
+            " inner join ( SELECT `StockID`, Min(`SMonth`) sMonth, Min(`MinPrice`) MinPrice, " +
+                    " Max(`MaxPrice`) MaxPrice, 1-(Min(`MinPrice`)/Max(`MaxPrice`)) SRate " +
+                    " FROM `monthmax` " +
+                    " WHERE monthDiff(`SMonth`, Date_Format(@dataDate, '%y/%m')) <= 6 ) b " +
+                    " on a.`StockID`=b.`StockID` and a.`StockDate`=@dataDate2 " +
+            " set a.stable=SRate*100 " +
+            " where a.StockID=@stockID";
+            CommonClass.execSQLNonQueryParams(sqlStr,
+                new Dictionary<string, string>() { { "@dataDate", dataDate }, { "@dataDate2", dataDate }, { "@stockID", stockID } }, sstConnStr);
 
             sqlStr = "Update stock60days a " +
                 " inner join stock60days b on a.`StockID`=b.StockID " +
@@ -1585,14 +1617,16 @@ namespace TaskTrayApplication
                 " (a.`OpenPriec`-a.`LPrice`) + (a.`HPrice`-a.`LPrice`) + (a.`HPrice`-a.`EndPrice`) , " +
                 " ABS(b.`EndPrice`-a.`OpenPriec`) + ABS(a.`OpenPriec`-a.`HPrice`) + " +
                 " (a.`HPrice`-a.`LPrice`) + ABS(a.`LPrice`-a.`EndPrice`)) " +
-                $" where a.`StockDate` = '{dataDate}' and a.StockID='{stockID}'";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+                " where a.`StockDate` = @dataDate3 and a.StockID=@stockID2";
+            CommonClass.execSQLNonQueryParams(sqlStr,
+                new Dictionary<string, string>() { { "@dataDate3", dataDate }, { "@stockID2", stockID } }, sstConnStr);
 
-            sqlStr = $"SELECT `StockDate` " +
-                    $" FROM `stock60days` " +
-                    $" WHERE `StockID`='{stockID}' and `StockDate` <= '{dataDate}' " +
-                    $" order by `StockDate` desc limit 20";
-            tempDt = CommonClass.getSQLDataTable(sqlStr, sstConnStr);
+            sqlStr = "SELECT `StockDate` " +
+                    " FROM `stock60days` " +
+                    " WHERE `StockID`=@stockID3 and `StockDate` <= @dataDate4 " +
+                    " order by `StockDate` desc limit 20";
+            tempDt = CommonClass.getSQLDataTableParams(sqlStr,
+                new Dictionary<string, string>() { { "@stockID3", stockID }, { "@dataDate4", dataDate } }, sstConnStr);
             int targetDateIdx = 0;
             string tempDate = null;
             string lastDate = null;
@@ -1601,10 +1635,11 @@ namespace TaskTrayApplication
                 targetDateIdx = tempDt.Rows.Count - 1;
                 lastDate = Convert.ToDateTime(tempDt.Rows[1]["StockDate"]).ToString("yyyy/MM/dd");
                 tempDate = Convert.ToDateTime(tempDt.Rows[targetDateIdx]["StockDate"]).ToString("yyyy/MM/dd");
-                sqlStr = $"SELECT `EndPrice`, Date_Format(`StockDate`, '%Y/%m/%d') dataDate " +
-                    $" FROM `stock60days` where `StockDate` >= '{tempDate}' and stockid = '{stockID}' " +
-                    $" order by EndPrice desc";
-                tempDt = CommonClass.getSQLDataTable(sqlStr, sstConnStr);
+                sqlStr = "SELECT `EndPrice`, Date_Format(`StockDate`, '%Y/%m/%d') dataDate " +
+                    " FROM `stock60days` where `StockDate` >= @tempDate and stockid = @stockID4 " +
+                    " order by EndPrice desc";
+                tempDt = CommonClass.getSQLDataTableParams(sqlStr,
+                    new Dictionary<string, string>() { { "@tempDate", tempDate }, { "@stockID4", stockID } }, sstConnStr);
                 double RCI = 0;
                 if (tempDt != null && tempDt.Rows.Count > 4)
                 {
@@ -1620,9 +1655,10 @@ namespace TaskTrayApplication
                         rciSum += (int)Math.Pow((dateIdx - i), 2);
                     }
                     RCI = Math.Round((double)(1 - ((6 * rciSum) / priceList.Count / (Math.Pow(priceList.Count, 2) - 1))) * 100, 0);
-                    sqlStr = $"update  `stock60days` set `droprate`='{RCI}', lastDate='{lastDate}' " +
-                        $"where `StockID`='{stockID}' and `StockDate`= '{dataDate}' ";
-                    CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+                    sqlStr = "update  `stock60days` set `droprate`=@rci, lastDate=@lastDate " +
+                        "where `StockID`=@stockID5 and `StockDate`= @dataDate5 ";
+                    CommonClass.execSQLNonQueryParams(sqlStr,
+                        new Dictionary<string, string>() { { "@rci", RCI.ToString() }, { "@lastDate", lastDate }, { "@stockID5", stockID }, { "@dataDate5", dataDate } }, sstConnStr);
                 }
             }
         }
@@ -1800,10 +1836,11 @@ namespace TaskTrayApplication
             sqlStr = "SELECT max(`StockDate`) FROM `weekall`";
 
             lastDate = Convert.ToDateTime(CommonClass.getSQLScalar(sqlStr, sstConnStr)).ToString("yyyy-MM-dd");
-            sqlStr = $"insert ignore into alertlist (`alertDate`,`StockID`,`reason`) " +
-                $" select distinct '{currDate}', StockID, '自有' " +
+            sqlStr = "insert ignore into alertlist (`alertDate`,`StockID`,`reason`) " +
+                $" select distinct @currDate, StockID, '自有' " +
                 $" FROM `activestocks`";
-            CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+            CommonClass.execSQLNonQueryParams(sqlStr,
+                new Dictionary<string, string>() { { "@currDate", currDate } }, sstConnStr);
             //sqlStr = $"insert ignore into alertlist (`alertDate`,`StockID`,`reason`) " +
             //    $"SELECT distinct '{currDate}', StockID, '周轉4以上,漲幅<=1'  " +
             //    $" FROM `tradedata` where `TransDate`='{lastDate}' and `turnoverRate` >= 4 and " +
@@ -1850,6 +1887,7 @@ namespace TaskTrayApplication
             //    ifUpdateOnly = !(!ifUpdateOnly && (panAvgVolRate >= 80 || panLastVolRate >= 2 || panAvg5VolRate >= 2));
             string sqlStr = null;
             string onDupStr = null;
+            Dictionary<string, string> prm = new Dictionary<string, string>();
             try
             {
                 if (pType == "pam" && direction == 1) //瞬跳 2% 以上
@@ -1883,31 +1921,56 @@ namespace TaskTrayApplication
                     onDupStr = "panVol50CntNeg = panVol50CntNeg+1, pApRateNegCnt = pApRateNegCnt +1, panVol5CntNeg = panVol5CntNeg+1";
 
 
-                onDupStr += $",maxPLVR=IF(maxPLVR > {panLastVolRate}, maxPLVR, {(direction == 0 ? -panLastVolRate : panLastVolRate)}), " +
-                    $" maxP5VR=IF(maxP5VR > {panAvg5VolRate}, maxP5VR, {(direction == 0 ? -panAvg5VolRate : panAvg5VolRate)}), " +
-                    $" maxPAR=IF(maxPAR > {panAvgVolRate}, maxPAR, {(direction == 0 ? -panAvgVolRate : panAvgVolRate)}), " +
-                    $" currPanAmtRate = {panAmtRate}, currPanVol={panVol} ";
+                prm["@panLastVolRate"] = panLastVolRate.ToString();
+                prm["@panAvg5VolRate"] = panAvg5VolRate.ToString();
+                prm["@panAvgVolRate"] = panAvgVolRate.ToString();
+                prm["@dirLast"] = (direction == 0 ? -panLastVolRate : panLastVolRate).ToString();
+                prm["@dir5"] = (direction == 0 ? -panAvg5VolRate : panAvg5VolRate).ToString();
+                prm["@dirAvg"] = (direction == 0 ? -panAvgVolRate : panAvgVolRate).ToString();
+                prm["@panAmtRate"] = panAmtRate.ToString();
+                prm["@panVol"] = panVol.ToString();
+
+                onDupStr += ",maxPLVR=IF(maxPLVR > @panLastVolRate, maxPLVR, @dirLast), " +
+                    " maxP5VR=IF(maxP5VR > @panAvg5VolRate, maxP5VR, @dir5), " +
+                    " maxPAR=IF(maxPAR > @panAvgVolRate, maxPAR, @dirAvg), " +
+                    " currPanAmtRate = @panAmtRate, currPanVol=@panVol ";
 
                 if (!ifUpdateOnly)
-                    sqlStr = $"insert ignore into `alertlist` (`alertDate`, `StockID`, `reason`, " +
-                        $" `paRatePosCnt`,`paRateNegCnt`," + //跳漲跌 2%
-                        $" `pLVRatePosCnt`,`pLVRateNegCnt`, " + //昨量 0.5 倍
-                        $" `p5VRatePosCnt`,`p5VRateNegCnt`," + //5均 0.5 倍
+                {
+                    prm["@stockID"] = stockID;
+                    prm["@reason"] = reason;
+                    prm["@pamPos"] = (pType == "pam" && direction == 1 ? 1 : 0).ToString();
+                    prm["@pamNeg"] = (pType == "pam" && direction == 0 ? 1 : 0).ToString();
+                    prm["@plvPos"] = (pType == "plv" && direction == 1 ? 1 : 0).ToString();
+                    prm["@plvNeg"] = (pType == "plv" && direction == 0 ? 1 : 0).ToString();
+                    prm["@p5vPos"] = (pType == "p5v" && direction == 1 ? 1 : 0).ToString();
+                    prm["@p5vNeg"] = (pType == "p5v" && direction == 0 ? 1 : 0).ToString();
+                    prm["@pavPos"] = ((pType == "pav" || pType == "pa10v" || pType == "pa20v") && direction == 1 ? 1 : 0).ToString();
+                    prm["@pavNeg"] = ((pType == "pav" || pType == "pa10v" || pType == "pa20v") && direction == 0 ? 1 : 0).ToString();
+                    prm["@pa10Pos"] = ((pType == "pa10v" || pType == "pa20v") && direction == 1 ? 1 : 0).ToString();
+                    prm["@pa10Neg"] = ((pType == "pa10v" || pType == "pa20v") && direction == 0 ? 1 : 0).ToString();
+                    prm["@pa20Pos"] = (pType == "pa20v" && direction == 1 ? 1 : 0).ToString();
+                    prm["@pa20Neg"] = (pType == "pa20v" && direction == 0 ? 1 : 0).ToString();
 
-                        $" `panVol5CntPos`,`panVol5CntNeg`, " + //盤5倍
-                        $" `pApRatePosCnt`,`pApRateNegCnt`, " + //盤10倍
-                        $" `panVol50CntPos`,`panVol50CntNeg`," + //盤20倍
-                        $" maxPLVR, maxP5VR, maxPAR, currPanAmtRate, currPanVol) " +
-                        $"Values (CURRENT_DATE, '{stockID}', '{reason}', " +
-                        $"{(pType == "pam" && direction == 1 ? 1 : 0)},{(pType == "pam" && direction == 0 ? 1 : 0)}," +
-                        $"{(pType == "plv" && direction == 1 ? 1 : 0)},{(pType == "plv" && direction == 0 ? 1 : 0)}," +
-                        $"{(pType == "p5v" && direction == 1 ? 1 : 0)},{(pType == "p5v" && direction == 0 ? 1 : 0)}," +
+                    sqlStr = "insert ignore into `alertlist` (`alertDate`, `StockID`, `reason`, " +
+                        " `paRatePosCnt`,`paRateNegCnt`," + //跳漲跌 2%
+                        " `pLVRatePosCnt`,`pLVRateNegCnt`, " + //昨量 0.5 倍
+                        " `p5VRatePosCnt`,`p5VRateNegCnt`," + //5均 0.5 倍
 
-                        $"{((pType == "pav" || pType == "pa10v" || pType == "pa20v") && direction == 1 ? 1 : 0)},{((pType == "pav" || pType == "pa10v" || pType == "pa20v") && direction == 0 ? 1 : 0)}, " +
-                        $"{((pType == "pa10v" || pType == "pa20v") && direction == 1 ? 1 : 0)},{((pType == "pa10v" || pType == "pa20v") && direction == 0 ? 1 : 0)}," +
-                        $"{(pType == "pa20v" && direction == 1 ? 1 : 0)},{(pType == "pa20v" && direction == 0 ? 1 : 0)}, " +
-                        $" {panLastVolRate}, {panAvg5VolRate}, {panAvgVolRate}, {panAmtRate}, {panVol}) ";
-                CommonClass.execSQLNonQuery(sqlStr, Constants.ConnString, true);
+                        " `panVol5CntPos`,`panVol5CntNeg`, " + //盤5倍
+                        " `pApRatePosCnt`,`pApRateNegCnt`, " + //盤10倍
+                        " `panVol50CntPos`,`panVol50CntNeg`," + //盤20倍
+                        " maxPLVR, maxP5VR, maxPAR, currPanAmtRate, currPanVol) " +
+                        "Values (CURRENT_DATE, @stockID, @reason, " +
+                        "@pamPos,@pamNeg," +
+                        "@plvPos,@plvNeg," +
+                        "@p5vPos,@p5vNeg," +
+                        "@pavPos,@pavNeg, " +
+                        "@pa10Pos,@pa10Neg," +
+                        "@pa20Pos,@pa20Neg, " +
+                        " @panLastVolRate, @panAvg5VolRate, @panAvgVolRate, @panAmtRate, @panVol) ";
+                }
+                CommonClass.execSQLNonQueryParams(sqlStr, prm, Constants.ConnString, true);
                 return 0;
             }
             catch (Exception ex)
@@ -2094,6 +2157,8 @@ namespace TaskTrayApplication
                 sst.last10PanSlot.RemoveAt(0);
             sst.last10PanSlot.Add(DateTime.Now);
             DataRow dr = null;
+            //O1(b): alertlog 多行批次累積列
+            List<Dictionary<string, string>> alertLogRows = new List<Dictionary<string, string>>();
             //即時資訊
             foreach (MsgArray msgArray in priceResults)
             {
@@ -2199,13 +2264,19 @@ namespace TaskTrayApplication
                         yestPrize = dbYestPrice = Convert.ToDouble(dr["lastPrice"]); //db中記錄的昨價
                         msgArray.y = dr["lastPrice"].ToString();
                     }
+                    else if (dr["sdEndPrice"] != null && dr["sdEndPrice"] != DBNull.Value)
+                    {
+                        yestPrize = dbYestPrice = Convert.ToDouble(dr["sdEndPrice"]); //stock60days 昨價（alertSource 已 join，O1(a)）
+                        msgArray.y = yestPrize.ToString();
+                    }
                     else
                     {
-                        var temp1 = $"SELECT `EndPrice` FROM `stock60days` " +
-                            $" where `StockDate` = '{lastDate}' and StockID='{msgArray.c}' ";
-                        var tempL = CommonClass.getSQLScalar(temp1, sstConnStr).ToString();
-                        yestPrize = dbYestPrice = Convert.ToDouble(tempL); //db中記錄的昨價
-                        msgArray.y = yestPrize.ToString();
+                        //O1(a): 無昨價可算 → 本輪明確跳過（原寫法為查詢例外間接跳過）
+                        if (tseRepeatList != null && msgArray.ex == "tse")
+                            tseRepeatList.Add(msgArray.c);
+                        else if (otcRepeatList != null && msgArray.ex == "otc")
+                            otcRepeatList.Add(msgArray.c);
+                        continue;
                     }
 
                     if (dr["onTimeVol"] != DBNull.Value)
@@ -2477,25 +2548,18 @@ namespace TaskTrayApplication
 
                     if (string.IsNullOrEmpty(msgArray.n))
                     {
-                        msgArray.n = CommonClass.getSQLScalar($"SELECT `name` FROM `stockid` " +
-                            $" where id={msgArray.c} ").ToString();
+                        msgArray.n = CommonClass.getSQLScalarParams("SELECT `name` FROM `stockid` " +
+                            " where id=@id ", new Dictionary<string, string>() { { "@id", msgArray.c } }).ToString();
                     }
 
-                    sqlStr = $"select (`paRatePosCnt`+`pLVRatePosCnt`+`p5VRatePosCnt`+`pApRatePosCnt`) - (`paRateNegCnt`+`pLVRateNegCnt`+`p5VRateNegCnt`+`pApRateNegCnt`) pDiff " +
-                                $" from alertlist " +
-                                $" where StockID='{msgArray.c}' and alertDate = CURRENT_DATE";
-                    tempObj = CommonClass.getSQLScalar(sqlStr);
-                    if (tempObj != null && tempObj != DBNull.Value)
+                    if (dr["pDiff"] != null && dr["pDiff"] != DBNull.Value)
                     {
-                        pDiff = Convert.ToInt32(tempObj);
+                        pDiff = Convert.ToInt32(dr["pDiff"]); //O1(a): alertSource 已 join alertlist
                     }
 
                     t0920Flag = false;
-                    sqlStr = $"SELECT Round(sum((`panAvgVolRate`/10) * IF(panAmtDiff>0,1,if(panAmtDiff<0,-1,0)))) panvolScore " +
-                        $" FROM `alertlog` where alertDate = CURRENT_DATE and `StockID`='{msgArray.c}' " +
-                        $" group by `StockID`, alertDate";
-
-                    if ((objPanScore = CommonClass.getSQLScalar(sqlStr)) == null)
+                    objPanScore = (dr["panvolScore"] != null && dr["panvolScore"] != DBNull.Value) ? dr["panvolScore"] : null; //O1(a): alertSource 已 join
+                    if (objPanScore == null)
                         panvolScore = 0;
                     else if (objPanScore == DBNull.Value)
                         panvolScore = 0;
@@ -2504,28 +2568,50 @@ namespace TaskTrayApplication
                     if (panAmtDiff != 0 && panAvgVolRate >= 10)
                         panvolScore += (int)((panAvgVolRate / 10) * (panAmtDiff > 0 ? 1 : -1));
 
-                    sqlStr = $"update investbase set `onTimePrice`={msgArray.z}, " +
-                                $" recDate = '{DateTime.Now.ToString("yyyy/MM/dd")}', preAlertID={alertID}, " +
-                                $" `onTimeVol`={onTimeVol}, momentAVDVol={panAvgVol}, lastVol={lastVol}," +
-                                $" dailyNoPriceCnt=dailyNoPriceCnt+{ifPriceVal}, dailyNoVolCnt=dailyNoVolCnt+{ifVolval}, " +
-                                $" instantMass= {dr["instantMass"]} + {ifMess}, messRise= {dr["messRise"]} + {messRise}, messFall= {dr["messFall"]} + {messFall}," +
-                                $" instantRise={dr["instantRise"]} + {ifRise}, instantFall = {dr["instantFall"]} + {ifFalls}, " +
-                                $" instantIdx = '{shortPower}' , OpenPriec={msgArray.o}, lastDate='{lastDate}', " +
-                                //$" Hprice=greatest(Hprice, {msgArray.z}), Lprice=least(IF(Lprice=0,{msgArray.z},Lprice), {msgArray.z}), " +
-                                $" Hprice=greatest(Hprice, {msgArray.h}), Lprice=least(IF(Lprice=0,{msgArray.z},Lprice), {msgArray.l}), " +
-                                $" panVol5Cnt='{panVol5Cnt}', panVol10Cnt='{panVol10Cnt}', panVol5Dict='{panVol5DictJson}', panvolScore={panvolScore}, " +
-                                $" panVol50CntPos = panVol50CntPos + {((panAvgVolRate >= 20 || panVol > 950) && panAmtDiff > 0 ? 1 : 0)}, " +
-                                $" panVol50CntNeg = panVol50CntNeg + {((panAvgVolRate >= 20 || panVol > 950) && panAmtDiff < 0 ? 1 : 0)} " +
+                    long instantMassNew = DbLong(dr["instantMass"]) + ifMess;
+                    long messRiseNew = DbLong(dr["messRise"]) + messRise;
+                    long messFallNew = DbLong(dr["messFall"]) + messFall;
+                    long instantRiseNew = DbLong(dr["instantRise"]) + ifRise;
+                    long instantFallNew = DbLong(dr["instantFall"]) + ifFalls;
+                    string recDateStr = DateTime.Now.ToString("yyyy/MM/dd");
+                    int panVol50PosAdd = ((panAvgVolRate >= 20 || panVol > 950) && panAmtDiff > 0) ? 1 : 0;
+                    int panVol50NegAdd = ((panAvgVolRate >= 20 || panVol > 950) && panAmtDiff < 0) ? 1 : 0;
 
-                                (pDiff == 0 ? "" : $", pDiff={pDiff}") +
+                    sqlStr = "update investbase set `onTimePrice`=@onTimePrice, " +
+                                " recDate = @recDate, preAlertID=@preAlertID, " +
+                                " `onTimeVol`=@onTimeVol, momentAVDVol=@panAvgVol, lastVol=@lastVol," +
+                                " dailyNoPriceCnt=dailyNoPriceCnt+@n1, dailyNoVolCnt=dailyNoVolCnt+@n2, " +
+                                " instantMass= @instantMass, messRise= @messRise, messFall= @messFall," +
+                                " instantRise=@instantRise, instantFall = @instantFall, " +
+                                " instantIdx = @shortPower , OpenPriec=@open, lastDate=@lastDate, " +
+                                " Hprice=greatest(Hprice, @h), Lprice=least(IF(Lprice=0,@z,Lprice), @l), " +
+                                " panVol5Cnt=@panVol5Cnt, panVol10Cnt=@panVol10Cnt, panVol5Dict=@panVol5DictJson, panvolScore=@panvolScore, " +
+                                " panVol50CntPos = panVol50CntPos + @p50Pos, " +
+                                " panVol50CntNeg = panVol50CntNeg + @p50Neg " +
+                                (pDiff == 0 ? "" : ", pDiff=@pDiff") +
                                 (tempVolDir == 1 ? ", panVol5CntPos=panVol5CntPos+1 " : "") +
                                 (tempVolDir == -1 ? ", panVol5CntNeg=panVol5CntNeg+1 " : "") +
-                                (tempVolDir == 1 ? $", panVol5QuanPos=panVol5QuanPos+ {panVol} " : "") +
-                                (tempVolDir == -1 ? $", panVol5QuanNeg=panVol5QuanNeg+ {panVol} " : "") +
-                                (t0920Flag ? $", vol0921='{onTimeVol}',  priceDiffRate0921 = '{diffRate}'" : "") +
-
-                                $" where `StockID`='{msgArray.c}'";
-                    CommonClass.execSQLNonQuery(sqlStr, sstConnStr);
+                                (tempVolDir == 1 ? ", panVol5QuanPos=panVol5QuanPos+ @panVolQ " : "") +
+                                (tempVolDir == -1 ? ", panVol5QuanNeg=panVol5QuanNeg+ @panVolQ " : "") +
+                                (t0920Flag ? ", vol0921=@vol0921, priceDiffRate0921 = @priceDiffRate0921" : "") +
+                                " where `StockID`=@stockId";
+                    var prmUpd = new Dictionary<string, string>() {
+                        { "@onTimePrice", msgArray.z }, { "@recDate", recDateStr }, { "@preAlertID", alertID.ToString() },
+                        { "@onTimeVol", onTimeVol.ToString() }, { "@panAvgVol", panAvgVol.ToString() }, { "@lastVol", lastVol.ToString() },
+                        { "@n1", ifPriceVal.ToString() }, { "@n2", ifVolval.ToString() },
+                        { "@instantMass", instantMassNew.ToString() }, { "@messRise", messRiseNew.ToString() }, { "@messFall", messFallNew.ToString() },
+                        { "@instantRise", instantRiseNew.ToString() }, { "@instantFall", instantFallNew.ToString() },
+                        { "@shortPower", shortPower.ToString() }, { "@open", msgArray.o }, { "@lastDate", lastDate },
+                        { "@h", msgArray.h }, { "@z", msgArray.z }, { "@l", msgArray.l },
+                        { "@panVol5Cnt", panVol5Cnt.ToString() }, { "@panVol10Cnt", panVol10Cnt.ToString() },
+                        { "@panVol5DictJson", DbStr(panVol5DictJson) }, { "@panvolScore", panvolScore.ToString() },
+                        { "@p50Pos", panVol50PosAdd.ToString() }, { "@p50Neg", panVol50NegAdd.ToString() },
+                        { "@stockId", msgArray.c }
+                    };
+                    if (pDiff != 0) prmUpd["@pDiff"] = pDiff.ToString();
+                    if (tempVolDir == 1 || tempVolDir == -1) prmUpd["@panVolQ"] = panVol.ToString();
+                    if (t0920Flag) { prmUpd["@vol0921"] = onTimeVol.ToString(); prmUpd["@priceDiffRate0921"] = diffRate.ToString(); }
+                    CommonClass.execSQLNonQueryParams(sqlStr, prmUpd, sstConnStr);
                     //tempVolDir = calcPanVolCntsSimple() 昨盤均 5 倍以上或興櫃 or 昨盤均 5 倍以上或盤量 >=200
                     //if (panAvgVolRate > 1 || Math.Abs(panAmtRate) >= 1 || tempVolDir >= -1)
                     if (panAvgVolRate >= 0.5 || Math.Abs(panAmtRate) >= 0.5 || tempVolDir >= -1 )
@@ -2539,45 +2625,33 @@ namespace TaskTrayApplication
                         else
                             instRuseFallRate = $"({dr["messRise"]}+{dr["messRise"]}+{dr["instantRise"]} + {ifRise})/({dr["messFall"]}+ {dr["instantFall"]}+ { messFall} + {ifFalls})";
 
-                        sqlStr = $"insert into `alertlog` (CREATED, `StockID`,`StockName`, lastDate, " +
-                                    $" AlertTitle, `AlertType`," +
-                                    $" `CurrPrice`,`CurrVol`, panVol, panTrans, panVolTransRate, diffPrice, " + //11
-                                    $" DiffRate, recommandBy, recommandPrice, priority, stockPriority, " +
-                                    $"`prePrice`,`preVol`,`preTime`, " +
-                                    $" lastVolRate, avg5VolRate, " + //16
-                                    $" instantMass, messRise, messFall, " +
-                                    $" instantRise, instantFall, InstRiseFallRate, " + //21
-                                    $" panAmtDiff, panAmtRate, panAvgVolRate,panLastVolRate,panAvg5VolRate," + //26
-                                    $" `instantBuyVol`,`instantSellVol`, `instantIdx`, OpenPriec, instantJumpKong, " +
-                                    $" lastPrice, lastVol, avg5Vol, pDiff, alertDate, panvolScore) " +
-
-                                    $"Values('{alertTime.ToString("yyyy-MM-dd HH:mm")}', '{msgArray.c}','{msgArray.n}', '{lastDate}', " +
-                                    $" '{notifyStrTitle.ToString()}','{notifyStrBody.ToString()}'," +
-                                    $" {msgArray.z},{onTimeVol},{panVol}, {panTrans}, {transRate}, {diffPrice}, " +
-                                    $"{diffRate}, '{dr["recommandBy"]}', '0', '{priority}', '{dr["priority"]}', " +
-                                    $" '{prePrice}', '{preVol}', '{preTime.ToString("yyyy-MM-dd HH:mm:ss")}'," +
-
-                                    $" {lastVolRate}, {avg5VolRate}," +
-                                    $" {ifMess}, {messRise}, {messFall}, " +
-                                    $" {ifRise}, {ifFalls}, {instRuseFallRate}, " +
-                                    $"{panAmtDiff},{panAmtRate},{panAvgVolRate}, {panLastVolRate},{panAvg5VolRate}, " +
-                                    $" '{msgArray.f}','{msgArray.g}', '{shortPower}', '{msgArray.o}', {instantJumpKong}," +
-                                    $" {yestPrize}, {lastVol}, {avg5Vol}, {pDiff}, CURRENT_DATE, {panvolScore}) " +
-                                    $" ON DUPLICATE KEY UPDATE " +
-                                    $" AlertTitle='{notifyStrTitle}', AlertType = '{notifyStrBody}', OpenPriec='{msgArray.o}', " +
-                                    $" `CurrPrice`={msgArray.z},`CurrVol`={onTimeVol}, panVol={panVol}, " +
-                                    $" panTrans={panTrans}, panVolTransRate={transRate},diffPrice={diffPrice}, " +
-                                    $" DiffRate={diffRate}, recommandBy='{dr["recommandBy"]}', recommandPrice='0', " +
-                                    $" priority='{priority}', stockPriority='{dr["priority"]}', " +
-                                    $"`prePrice`='{prePrice}',`preVol`='{preVol}',`preTime`= '{preTime.ToString("yyyy-MM-dd HH:mm:ss")}', " +
-                                    $" lastVolRate={lastVolRate}, avg5VolRate={avg5VolRate}, " +
-                                    $" instantMass={ifMess}, messRise={messRise}, messFall= {messFall}, " +
-                                    $" instantRise={ifRise}, instantFall={ifFalls}, " +
-                                    $" panAmtDiff={panAmtDiff}, panAmtRate={panAmtRate}, panAvgVolRate={panAvgVolRate}," +
-                                    $" panLastVolRate={panLastVolRate},panAvg5VolRate={(avg5Vol == 0 ? panVol : panVol / avg5Vol)} ," +
-                                    $" `instantBuyVol`='{msgArray.f}',`instantSellVol`='{msgArray.g}', `instantIdx`='{shortPower}', instantJumpKong={instantJumpKong}, " +
-                                    $" InstRiseFallRate={instRuseFallRate}, panvolScore={panvolScore} ";
-                        alertID = CommonClass.execSQLNonQuery(sqlStr, sstConnStr, true);
+                        //O1(b): alertlog 批次累積（原逐檔 INSERT+ON DUP；批次 flush 後語意不變，唯 preAlertID 無 LAST_INSERT_ID，置 0 — 該欄位無程式消費者）
+                        alertLogRows.Add(new Dictionary<string, string>() {
+                            { "alertTime", alertTime.ToString("yyyy-MM-dd HH:mm") },
+                            { "c", msgArray.c }, { "n", msgArray.n }, { "lastDate", lastDate },
+                            { "AlertTitle", notifyStrTitle.ToString() }, { "AlertType", notifyStrBody.ToString() },
+                            { "z", msgArray.z }, { "onTimeVol", onTimeVol.ToString() }, { "panVol", panVol.ToString() },
+                            { "panTrans", panTrans.ToString() }, { "transRate", transRate.ToString() }, { "diffPrice", diffPrice.ToString() },
+                            { "diffRate", diffRate.ToString() }, { "recommandBy", DbStr(dr["recommandBy"]) },
+                            { "priority", priority.ToString() }, { "stockPriority", DbStr(dr["priority"]) },
+                            { "prePrice", prePrice.ToString() }, { "preVol", preVol.ToString() }, { "preTime", preTime.ToString("yyyy-MM-dd HH:mm:ss") },
+                            { "lastVolRate", lastVolRate.ToString() }, { "avg5VolRate", avg5VolRate.ToString() },
+                            { "ifMess", ifMess.ToString() }, { "messRise", messRise.ToString() }, { "messFall", messFall.ToString() },
+                            { "ifRise", ifRise.ToString() }, { "ifFalls", ifFalls.ToString() }, { "instRuseFallRate", DbStr(instRuseFallRate) },
+                            { "panAmtDiff", panAmtDiff.ToString() }, { "panAmtRate", panAmtRate.ToString() },
+                            { "panAvgVolRate", panAvgVolRate.ToString() }, { "panLastVolRate", panLastVolRate.ToString() },
+                            { "panAvg5VolRate", panAvg5VolRate.ToString() },
+                            { "instantBuyVol", msgArray.f }, { "instantSellVol", msgArray.g }, { "shortPower", shortPower.ToString() },
+                            { "open", msgArray.o }, { "instantJumpKong", instantJumpKong.ToString() },
+                            { "yestPrize", yestPrize.ToString() }, { "lastVol2", lastVol.ToString() },
+                            { "avg5Vol", avg5Vol.ToString() }, { "pDiff", pDiff.ToString() }, { "panvolScore", panvolScore.ToString() }
+                        });
+                        if (alertLogRows.Count >= 500)
+                        {
+                            FlushAlertLogBatch(alertLogRows, sstConnStr);
+                            alertLogRows.Clear();
+                        }
+                        alertID = 0; //O1(b): 批次化無 LAST_INSERT_ID
                         //sqlStr = $"update alertlog a " +
                         //        $" inner join investbase b on a.`StockID`=b.`StockID` " +
                         //        $" set a.`panVol5CntPos` = b.panVol5CntPos , a.`panVol5CntNeg`= b.`panVol5CntNeg`, " +
@@ -2621,6 +2695,8 @@ namespace TaskTrayApplication
 
                 }
             }
+            //O1(b): 本輪剩餘 alertlog 列尾批寫入
+            FlushAlertLogBatch(alertLogRows, sstConnStr);
             t0920Flag = DateTime.Now.Hour == 9 && DateTime.Now.Minute >= 19 && DateTime.Now.Minute <= 21;
             if (CommonApp.sendSSTStartLine.Date < DateTime.Now.Date && t0920Flag)
             {

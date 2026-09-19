@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,6 +13,24 @@ using TaskTrayApplication;
 
 namespace FirstOhm
 {
+    /// <summary>
+    /// 集中式機密存取（鐵律 4：禁止硬編碼敏感資訊）。
+    /// 一律從環境變數讀取（優先 User 範圍，其次 Process），缺漏即拋出明確錯誤。
+    /// 環境變數清單見專案根 Docs/SECRETS.md；本檔一律不寫任何機密值。
+    /// </summary>
+    static class Secrets
+    {
+        public static string Get(string name)
+        {
+            string v = Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.User);
+            if (string.IsNullOrEmpty(v))
+                v = Environment.GetEnvironmentVariable(name);
+            if (string.IsNullOrEmpty(v))
+                throw new InvalidOperationException("缺少環境變數 " + name + "：請依 Docs/SECRETS.md 設定後再啟動。");
+            return v;
+        }
+    }
+
     static class Constants
     {
         public const String ConnString = SSTConnString;
@@ -20,75 +38,76 @@ namespace FirstOhm
         /// <summary>
         /// ////////////////////////////////
         /// </summary>
-        //public const String SSTConnString = "Data Source = 172.168.1.35; Password=REDACTED;User ID = firstohm; Database=sst;port=3306;charset=utf8;convert zero datetime=True";
+        //public const String SSTConnString = "Data Source = 172.168.1.35; Password=***;User ID = firstohm; Database=sst;port=3306;charset=utf8;convert zero datetime=True";
         public const String SSTConnString = "Data Source = 127.0.0.1; Password=;User ID =root; Database=sst;port=3306;charset=utf8;convert zero datetime=True";
 
-        //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2
+        //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2 //SSTV2
         //public const String SSTConnString = "Data Source = 127.0.0.1; Password=;User ID =root; Database=sstv2;port=3306;charset=utf8;convert zero datetime=True";
 
         public const String LocalSSTConnString = "Data Source = 127.0.0.1; Password=;User ID =root; Database=sst;port=3306;charset=utf8;convert zero datetime=True";
         public const String LocalSSTV2ConnString = "Data Source = 127.0.0.1; Password=;User ID =root; Database=sstv2;port=3306;charset=utf8;convert zero datetime=True";
 
-        public const String SSTConnString35 = "Data Source = 172.168.1.35; Password=REDACTED;User ID = firstohm; Database=sst;port=3306;charset=utf8;convert zero datetime=True";
+        //Production 連線：密碼一律由環境變數 SST_DB_PWD 提供（Docs/SECRETS.md）
+        public static string SSTConnString35 = "Data Source = 172.168.1.35; Password=" + Secrets.Get("SST_DB_PWD") + ";User ID = firstohm; Database=sst;port=3306;charset=utf8;convert zero datetime=True";
         //public const String SSTConnString35 = SSTConnString;
 
         //正常 151
-        public const String salesConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        public const String Firstohm = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        public const String TEST_MFOFlowConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        public const String ACLConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        public const string SampleConnection = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        public const String MFOFlowConnString = "Data Source =172.168.1.151; Password=REDACTED;User ID =firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=120";
-        public const String WarehouseConnString = "Data Source = 172.168.1.151; Password=REDACTED;User ID = firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String realWHConnection = "Data Source =172.168.1.151; Password = REDACTED; User ID = firstohm; Database = WareHouse; port = 3306; charset = utf8; convert zero datetime = True;SslMode=None;";
-        //public const String testWHConnection = "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        public const String MFOFlowConnString172_33 = "Data Source =172.168.1.33; Password=REDACTED;User ID =firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
-        public const String MFOFlowConnString172_35 = "Data Source =172.168.1.35; Password=REDACTED;User ID =firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
-        public const string ProcurmentConnection = "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        public const String OfficialMFOFlowConnString = "Data Source = 172.168.1.151; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=120";
-        public const string portalConnString = "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        public const string portalnewConnString = "Data Source=192.168.1.33;Password=REDACTED;User ID=firstohm;Database=portal-new;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string salesConnString = "Data Source=211.23.138.231;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string Firstohm = "Data Source=211.23.138.231;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string TEST_MFOFlowConnString = "Data Source=211.23.138.231;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string ACLConnString = "Data Source=211.23.138.231;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string SampleConnection = "Data Source=211.23.138.231;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string MFOFlowConnString = "Data Source =172.168.1.151; Password=" + Secrets.Get("SST_DB_PWD") + ";User ID =firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=120";
+        public static string WarehouseConnString = "Data Source = 172.168.1.151; Password=" + Secrets.Get("SST_DB_PWD") + ";User ID = firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String realWHConnection = "Data Source =172.168.1.151; Password = ***; User ID = firstohm; Database = WareHouse; port = 3306; charset = utf8; convert zero datetime = True;SslMode=None;";
+        //public const String testWHConnection = "Data Source=172.168.1.151;Password=***;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string MFOFlowConnString172_33 = "Data Source =172.168.1.33; Password=" + Secrets.Get("SST_DB_PWD") + ";User ID =firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
+        public static string MFOFlowConnString172_35 = "Data Source =172.168.1.35; Password=" + Secrets.Get("SST_DB_PWD") + ";User ID =firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
+        public static string ProcurmentConnection = "Data Source=172.168.1.151;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string OfficialMFOFlowConnString = "Data Source = 172.168.1.151; Password=" + Secrets.Get("SST_DB_PWD") + ";User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=120";
+        public static string portalConnString = "Data Source=192.168.1.33;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string portalnewConnString = "Data Source=192.168.1.33;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=portal-new;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
 
         //測試 172.35
-        //public const String salesConnString = "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String Firstohm = "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=120";
-        //public const String ACLConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const string SampleConnection = "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String MFOFlowConnString = "Data Source = 172.168.1.35; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=120";
-        //public const String WarehouseConnString = "Data Source = 172.168.1.35; Password=REDACTED;User ID = firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        ////public const String realWHConnection = "Data Source =172.168.1.35; Password = REDACTED; User ID = firstohm; Database = WareHouse; port = 3306; charset = utf8; convert zero datetime = True;SslMode=None;";
-        ////public const String testWHConnection = "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String MFOFlowConnString172_33 = "Data Source = 172.168.1.35; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
-        ////public const string ConutriTCConnString = "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=conutritc;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        ////public const string ConutriTCConnString = "Data Source=192.168.2.222;Password=REDACTED;User ID=firstohm;Database=conutritc;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const string ProcurmentConnection = "Data Source=172.168.1.35;Password=REDACTED;User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String TEST_MFOFlowConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String MFOFlowConnString172_35 = "Data Source =172.168.1.35; Password=REDACTED;User ID =firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
-        //public const String OfficialMFOFlowConnString = "Data Source = 172.168.1.151; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=120";
-        //public const string portalConnString = "Data Source=192.168.1.29;Password=REDACTED;User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const string portalnewConnString = "Data Source=192.168.1.29;Password=REDACTED;User ID=firstohm;Database=portal-new;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String salesConnString = "Data Source=172.168.1.35;Password=***;User ID=firstohm;Database=Firstohm_Sales;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String Firstohm = "Data Source=172.168.1.35;Password=***;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;default command timeout=120";
+        //public const String ACLConnString = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const string SampleConnection = "Data Source=172.168.1.35;Password=***;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String MFOFlowConnString = "Data Source = 172.168.1.35; Password=***;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=120";
+        //public const String WarehouseConnString = "Data Source = 172.168.1.35; Password=***;User ID = firstohm;Database=WareHouse;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        ////public const String realWHConnection = "Data Source =172.168.1.35; Password = ***; User ID = firstohm; Database = WareHouse; port = 3306; charset = utf8; convert zero datetime = True;SslMode=None;";
+        ////public const String testWHConnection = "Data Source=172.168.1.35;Password=***;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String MFOFlowConnString172_33 = "Data Source = 172.168.1.35; Password=***;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
+        ////public const string ConutriTCConnString = "Data Source=172.168.1.35;Password=***;User ID=firstohm;Database=conutritc;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        ////public const string ConutriTCConnString = "Data Source=192.168.2.222;Password=***;User ID=firstohm;Database=conutritc;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const string ProcurmentConnection = "Data Source=172.168.1.35;Password=***;User ID=firstohm;Database=procurement;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String TEST_MFOFlowConnString = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String MFOFlowConnString172_35 = "Data Source =172.168.1.35; Password=***;User ID =firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
+        //public const String OfficialMFOFlowConnString = "Data Source = 172.168.1.151; Password=***;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True;default command timeout=120";
+        //public const string portalConnString = "Data Source=192.168.1.29;Password=***;User ID=firstohm;Database=portal;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const string portalnewConnString = "Data Source=192.168.1.29;Password=***;User ID=firstohm;Database=portal-new;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
 
 
         //台北
-        //public const String TEST_MFOFlowConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String ACLConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const string SampleConnection = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String MFOFlowConnString = "Data Source = 211.23.138.231; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
-        //public const String WarehouseConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String realWHConnection = "Data Source = 211.23.138.231; Password = REDACTED; User ID = firstohm; Database = WareHouse; port = 3306; charset = utf8; convert zero datetime = True;SslMode=None;";
-        //public const String testWHConnection = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String TEST_MFOFlowConnString = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String ACLConnString = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const string SampleConnection = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String MFOFlowConnString = "Data Source = 211.23.138.231; Password=***;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
+        //public const String WarehouseConnString = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String realWHConnection = "Data Source = 211.23.138.231; Password = ***; User ID = firstohm; Database = WareHouse; port = 3306; charset = utf8; convert zero datetime = True;SslMode=None;";
+        //public const String testWHConnection = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
 
         //花蓮
-        //public const String TEST_MFOFlowConnString = "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String ACLConnString = "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const string SampleConnection = "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String MFOFlowConnString = "Data Source = 172.168.1.151; Password=REDACTED;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
-        //public const String WarehouseConnString = "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
-        //public const String realWHConnection = "Data Source = 172.168.1.151; Password = REDACTED; User ID = firstohm; Database = WareHouse; port = 3306; charset = utf8; convert zero datetime = True;SslMode=None;";
-        //public const String testWHConnection = "Data Source=172.168.1.151;Password=REDACTED;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String TEST_MFOFlowConnString = "Data Source=172.168.1.151;Password=***;User ID=firstohm;Database=MFO_FLOW_TEST;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String ACLConnString = "Data Source=172.168.1.151;Password=***;User ID=firstohm;Database=ChkIn_Out;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const string SampleConnection = "Data Source=172.168.1.151;Password=***;User ID=firstohm;Database=Firstohm_SAMPLE;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String MFOFlowConnString = "Data Source = 172.168.1.151; Password=***;User ID = firstohm; Database=MFO_FLOW;port=3306;charset=utf8;convert zero datetime=True";
+        //public const String WarehouseConnString = "Data Source=172.168.1.151;Password=***;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        //public const String realWHConnection = "Data Source = 172.168.1.151; Password = ***; User ID = firstohm; Database = WareHouse; port = 3306; charset = utf8; convert zero datetime = True;SslMode=None;";
+        //public const String testWHConnection = "Data Source=172.168.1.151;Password=***;User ID=firstohm;Database=WareHouse_test;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
 
 
-        public const string ConutriTCConnString = "Data Source=192.168.2.222;Password=REDACTED;User ID=firstohm;Database=conutritc;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
+        public static string ConutriTCConnString = "Data Source=192.168.2.222;Password=" + Secrets.Get("SST_DB_PWD") + ";User ID=firstohm;Database=conutritc;port=3306;charset=utf8;convert zero datetime=True;SslMode=None;";
         
         public const string severeEmailList = "scott.tseng@firstohm.com.tw;peijou.chiu@firstohm.com.tw;";
         public const String propertyFile = @"C:\SSTTray\Property.txt";

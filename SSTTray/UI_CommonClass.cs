@@ -1,4 +1,4 @@
-﻿using FirstOhm;
+using FirstOhm;
 using MySql.Data.MySqlClient;
 using System;
 using System.Collections;
@@ -509,7 +509,7 @@ namespace FirstOhm
             try
             {
                 //string ConnString;
-                //ConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;";
+                //ConnString = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;";
                 CommonClass.dropTable(IP + a10 + a11);
 
                 string selectCmd = "CREATE TABLE " + IP + a10 + a11 + "(WATT varchar(10),RTYPE varchar(50),TOLER varchar(5),ONECASE varchar(10),PA varchar(10),CUST varchar(10)" +
@@ -553,7 +553,7 @@ namespace FirstOhm
             try
             {
                 //string ConnString;
-                //ConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;";
+                //ConnString = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;";
                 CommonClass.dropTable(IP + a10 + a11);
 
                 string selectCmd = "CREATE TABLE " + IP + a10 + a11 + "(CUST varchar(10),PONAB varchar(30),RTYPE varchar(10),VAL varchar(10),WATT varchar(10),TOLER varchar(5)," +
@@ -641,7 +641,7 @@ namespace FirstOhm
             try
             {
                 //string ConnString;
-                //ConnString = "Data Source=211.23.138.231;Password=REDACTED;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;";
+                //ConnString = "Data Source=211.23.138.231;Password=***;User ID=firstohm;Database=Firstohm;port=3306;charset=utf8;";
 
                 string selectCmd = "DROP TABLE  " + IP + a10 + a11;
                 MySqlConnection conn = new MySqlConnection(Constants.ConnString); //ConnString

@@ -1,4 +1,4 @@
-﻿
+
 namespace TaskTrayApplication
 {
     partial class beckupWeb
@@ -43,14 +43,10 @@ namespace TaskTrayApplication
             this.listUrls.FormattingEnabled = true;
             this.listUrls.ItemHeight = 23;
             this.listUrls.Items.AddRange(new object[] {
-            "http://192.168.1.33:8080/Portal/index.php?option=com_akeeba&view=Backup&key=2u4u+" +
-                "2u04yj3diyidianzu",
-            "https://pay.firstohm.com.tw/index.php?option=com_akeeba&view=Backup&key=2u4u+2u04" +
-                "yj3diyicianzu",
-            "https://diggo.com.tw/index.php?option=com_akeeba&view=Backup&key=6Xq6Vd0hPzbifZpd" +
-                "X4cyUYi7ft5NIMq8",
-            "http://172.168.1.151:8080/Portal/index.php?option=com_akeeba&view=Backup&key=2u4u" +
-                "+2u04yj3diyidianzu"});
+            "http://192.168.1.33:8080/Portal/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_A"),
+            "https://pay.firstohm.com.tw/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_B"),
+            "https://diggo.com.tw/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_D"),
+            "http://172.168.1.151:8080/Portal/index.php?option=com_akeeba&view=Backup&key=" + FirstOhm.Secrets.Get("SST_BAK_KEY_A")});
             this.listUrls.Location = new System.Drawing.Point(12, 57);
             this.listUrls.Name = "listUrls";
             this.listUrls.Size = new System.Drawing.Size(1008, 142);
